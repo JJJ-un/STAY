@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.yarn/
+frontend/.pnp.*
+
+# Backend
+backend/.gradle/
+backend/build/
+backend/out/
+backend/.idea/
+backend/*.iml
+backend/*.log
+
+# IDE & Tools
+.idea/
+.vscode/
+*.swp
+*.tmp
