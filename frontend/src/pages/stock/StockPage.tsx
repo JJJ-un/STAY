@@ -1,0 +1,45 @@
+import { useState } from 'react'
+import { Tabs, type TabItem } from '@/shared/ui'
+import { StockList, type StockFilterType } from '@/widgets/stock-list'
+
+const STOCK_TAB_ITEMS: TabItem<StockFilterType>[] = [
+  { id: 'RANK', label: '실시간 순위' },
+  { id: 'VOLUME', label: '거래량' },
+  { id: 'RISING', label: '급상승' },
+  { id: 'FALLING', label: '급하락' },
+]
+
+interface StockPageProps {
+  onNavigate?: (path: string) => void
+}
+
+export function StockPage({ onNavigate }: StockPageProps) {
+  const [activeFilter, setActiveFilter] = useState<StockFilterType>('RANK')
+
+  return (
+    <div className="flex-1 flex flex-col">
+      {/* 헤더 바로 아래 위치하는 관심 종목 필터 탭 (sticky 고정) */}
+      <div className="sticky top-[48px] z-40 bg-white/95 backdrop-blur-md px-4">
+        <Tabs<StockFilterType>
+          items={STOCK_TAB_ITEMS}
+          activeId={activeFilter}
+          onChange={setActiveFilter}
+          variant="underline"
+          size="sm"
+          fullWidth
+        />
+      </div>
+
+      {/* 종목 리스트 영역 (showRank={false}로 순위 번호 미노출) */}
+      <div className="flex-1 p-4 pb-6">
+        <StockList
+          filter={activeFilter}
+          showRank={false}
+          onSelectStock={(stockId) => onNavigate?.(`/stock/${stockId}`)}
+        />
+      </div>
+    </div>
+  )
+}
+
+export default StockPage

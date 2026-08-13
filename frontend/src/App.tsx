@@ -1,45 +1,165 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { Header, type HeaderProps } from '@/widgets/header'
+import { BottomNav } from '@/widgets/bottom-nav'
+import { MainPage } from '@/pages/main'
+import { StockPage } from '@/pages/stock'
+import { StockDetailPage } from '@/pages/stock-detail'
+import { JournalPage } from '@/pages/journal'
+import { JournalWritePage } from '@/pages/journal-write'
+import { JournalDetailPage } from '@/pages/journal-detail'
+import { NotificationPage } from '@/pages/notification'
+import { MyPage } from '@/pages/my'
+import PlusIcon from '@/shared/assets/plus.svg?react'
 
-function App() {
-  const [count, setCount] = useState(0)
+export function App() {
+  // 브라우저 location.pathname 또는 hash 기반 상태 관리
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    return window.location.pathname + window.location.search || '/'
+  })
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 font-sans">
-      <div className="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6 text-center">
-        <div className="inline-flex items-center space-x-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-indigo-400 text-sm font-medium">
-          <span>🚀 프로젝트 세팅 완료</span>
-        </div>
+  // 일지 작성 전용 헤더 백 핸들러 참조
+  const journalBackHandlerRef = useRef<(() => void) | null>(null)
 
-        <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-          STAY Service Initialized
-        </h1>
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname + window.location.search || '/')
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
-        <p className="text-slate-400 text-base leading-relaxed">
-          React, TypeScript, Vite 및 Tailwind CSS가 정상적으로 세팅되었습니다.
-        </p>
+  const handleNavigate = (path: string) => {
+    if (path !== currentPath) {
+      window.history.pushState({}, '', path)
+      setCurrentPath(path)
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
+  }
 
-        <div className="grid grid-cols-2 gap-4 py-4">
-          <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-800 text-left">
-            <span className="text-xs text-indigo-400 font-semibold uppercase tracking-wider block mb-1">Frontend</span>
-            <div className="font-bold text-slate-200">React + TS + Vite</div>
-            <div className="text-xs text-slate-400 mt-1">Yarn 패키지 매니저</div>
-          </div>
-          <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-800 text-left">
-            <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider block mb-1">Styling</span>
-            <div className="font-bold text-slate-200">Tailwind CSS</div>
-            <div className="text-xs text-slate-400 mt-1">@tailwindcss/vite v4</div>
-          </div>
-        </div>
+  const pathname = currentPath.split('?')[0]
+  const search = currentPath.split('?')[1] || ''
 
-        <div className="pt-2">
+  // 현재 경로(pathname)에 따른 헤더 프로퍼티 동적 설정
+  const getHeaderProps = (): HeaderProps => {
+    if (pathname.startsWith('/stock/')) {
+      return {
+        showBackButton: true,
+        onBack: () => handleNavigate('/'),
+      }
+    }
+
+    if (pathname.startsWith('/journal/detail')) {
+      return {
+        showBackButton: true,
+        onBack: () => handleNavigate('/journal'),
+        title: '주식일지 상세',
+      }
+    }
+
+    if (pathname === '/journal/write') {
+      return {
+        showBackButton: true,
+        onBack: () => {
+          if (journalBackHandlerRef.current) {
+            journalBackHandlerRef.current()
+          } else {
+            handleNavigate('/journal')
+          }
+        },
+      }
+    }
+
+    if (pathname === '/journal') {
+      return {
+        showBackButton: true,
+        onBack: () => handleNavigate('/'),
+        rightAction: (
           <button
             type="button"
-            onClick={() => setCount((c) => c + 1)}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl transition duration-200 shadow-lg shadow-indigo-600/20 active:scale-95"
+            onClick={() => handleNavigate('/journal/write')}
+            className="w-8 h-8 rounded-full bg-slate-200/70 hover:bg-slate-300 active:bg-slate-400 flex items-center justify-center transition-all group cursor-pointer"
+            aria-label="일지 쓰기"
           >
-            Count is {count}
+            <PlusIcon className="w-3.5 h-3.5 text-slate-900 fill-slate-900 transition-transform group-hover:scale-110" />
           </button>
-        </div>
+        ),
+      }
+    }
+
+    switch (pathname) {
+      case '/stock':
+      case '/notification':
+      case '/my':
+        return {
+          showBackButton: true,
+          onBack: () => handleNavigate('/'),
+        }
+      case '/':
+      default:
+        return { showBackButton: false } // 메인 기본 로고 (STAY)
+    }
+  }
+
+  // 경로에 따른 메인 본문 콘텐츠 렌더링
+  const renderPage = () => {
+    if (pathname.startsWith('/stock/')) {
+      const stockId = pathname.replace('/stock/', '') || '1'
+      return <StockDetailPage stockId={stockId} onNavigate={handleNavigate} />
+    }
+
+    if (pathname.startsWith('/journal/detail')) {
+      const params = new URLSearchParams(search)
+      const journalId = params.get('id') || 'j1'
+      return (
+        <JournalDetailPage
+          journalId={journalId}
+          onNavigate={handleNavigate}
+        />
+      )
+    }
+
+    if (pathname === '/journal/write') {
+      const params = new URLSearchParams(search)
+      const stockId = params.get('stockId') || '1'
+      const stockName = params.get('stockName') || '삼성전자'
+      return (
+        <JournalWritePage
+          onNavigate={handleNavigate}
+          initialStockId={stockId}
+          initialStockName={stockName}
+          onRegisterBackHandler={(fn) => {
+            journalBackHandlerRef.current = fn
+          }}
+        />
+      )
+    }
+
+    switch (pathname) {
+      case '/stock':
+        return <StockPage onNavigate={handleNavigate} />
+      case '/journal':
+        return <JournalPage onNavigate={handleNavigate} />
+      case '/notification':
+        return <NotificationPage onNavigate={handleNavigate} />
+      case '/my':
+        return <MyPage onNavigate={handleNavigate} />
+      case '/':
+      default:
+        return <MainPage onNavigate={handleNavigate} />
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-100 flex justify-center">
+      <div className="w-full max-w-[430px] min-h-screen bg-white text-slate-900 flex flex-col relative">
+        {/* 최상단 고정 헤더 */}
+        <Header {...getHeaderProps()} />
+
+        {/* 페이지 본문 영역 */}
+        <main className="flex-1 flex flex-col">{renderPage()}</main>
+
+        {/* 최하단 고정 내비게이션 바 */}
+        <BottomNav activePath={pathname} onNavigate={handleNavigate} />
       </div>
     </div>
   )
