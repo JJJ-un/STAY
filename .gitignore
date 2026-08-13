@@ -19,5 +19,6 @@ backend/*.log
 # IDE & Tools
 .idea/
 .vscode/
+.agents/
 *.swp
 *.tmp
