@@ -106,7 +106,7 @@ public class Journal extends BaseTimeEntity {
         this.emotion = emotion != null ? emotion : EmotionType.NONE;
         this.reasonMemo = reasonMemo;
         this.stayMessage = stayMessage;
-        this.isPublic = isPublic != null ? isPublic : true;
+        this.isPublic = isPublic != null ? isPublic : false;
         this.likeCount = 0;
     }
 
