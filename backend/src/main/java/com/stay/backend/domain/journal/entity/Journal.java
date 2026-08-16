@@ -1,5 +1,6 @@
 package com.stay.backend.domain.journal.entity;
 
+import com.stay.backend.domain.stock.entity.ChartRangeType;
 import com.stay.backend.domain.stock.entity.Stock;
 import com.stay.backend.domain.user.entity.User;
 import com.stay.backend.global.common.BaseTimeEntity;
@@ -34,7 +35,7 @@ public class Journal extends BaseTimeEntity {
     @JoinColumn(name = "stock_id", nullable = false)
     private Stock stock;
 
-    // 1단계: 매매 사실
+    // 1단계: 매매 사실 (WATCH 관망 시 price, quantity, totalPrice는 null 허용)
     @Enumerated(EnumType.STRING)
     @Column(name = "trade_type", nullable = false, length = 20)
     private TradeType tradeType;
@@ -46,13 +47,13 @@ public class Journal extends BaseTimeEntity {
     @Column(nullable = false, length = 10)
     private CurrencyType currency;
 
-    @Column(nullable = false, precision = 15, scale = 4)
+    @Column(precision = 15, scale = 4)
     private BigDecimal price;
 
-    @Column(nullable = false, precision = 15, scale = 4)
+    @Column(precision = 15, scale = 4)
     private BigDecimal quantity;
 
-    @Column(name = "total_price", nullable = false, precision = 15, scale = 4)
+    @Column(name = "total_price", precision = 15, scale = 4)
     private BigDecimal totalPrice;
 
     // 2단계: 매매 원칙
@@ -77,6 +78,20 @@ public class Journal extends BaseTimeEntity {
     @Column(name = "stay_message", nullable = false, columnDefinition = "TEXT")
     private String stayMessage;
 
+    // 4단계: 주가 흐름 패턴 추적 & 차트 기간 범위 스냅샷
+    @Enumerated(EnumType.STRING)
+    @Column(name = "chart_range_type", length = 20)
+    private ChartRangeType chartRangeType; // 작성 당시 차트 기간 범위 (DAY_1, MONTH_3 등)
+
+    @Column(name = "price_pattern", columnDefinition = "TEXT")
+    private String pricePattern;
+
+    @Column(name = "is_tracking", nullable = false)
+    private Boolean isTracking = true;
+
+    @Column(name = "similarity_threshold", nullable = false)
+    private Double similarityThreshold = 0.85;
+
     // 커뮤니티/피드 설정
     @Column(name = "is_public", nullable = false)
     private boolean isPublic;
@@ -91,10 +106,12 @@ public class Journal extends BaseTimeEntity {
     public Journal(User user, Stock stock, TradeType tradeType, LocalDateTime tradeDateTime,
                    CurrencyType currency, BigDecimal price, BigDecimal quantity, BigDecimal totalPrice,
                    BigDecimal targetPrice, BigDecimal stopLossPrice, HoldingPeriod holdingPeriod,
-                   EmotionType emotion, String reasonMemo, String stayMessage, Boolean isPublic) {
+                   EmotionType emotion, String reasonMemo, String stayMessage,
+                   ChartRangeType chartRangeType, String pricePattern, Boolean isTracking, Double similarityThreshold,
+                   Boolean isPublic) {
         this.user = user;
         this.stock = stock;
-        this.tradeType = tradeType;
+        this.tradeType = tradeType != null ? tradeType : TradeType.WATCH;
         this.tradeDateTime = tradeDateTime;
         this.currency = currency != null ? currency : CurrencyType.USD;
         this.price = price;
@@ -106,17 +123,25 @@ public class Journal extends BaseTimeEntity {
         this.emotion = emotion != null ? emotion : EmotionType.NONE;
         this.reasonMemo = reasonMemo;
         this.stayMessage = stayMessage;
+        this.chartRangeType = chartRangeType;
+        this.pricePattern = pricePattern;
+        this.isTracking = isTracking != null ? isTracking : (pricePattern != null && !pricePattern.isBlank());
+        this.similarityThreshold = similarityThreshold != null ? similarityThreshold : 0.85;
         this.isPublic = isPublic != null ? isPublic : false;
         this.likeCount = 0;
     }
 
     public void updateJournal(BigDecimal targetPrice, BigDecimal stopLossPrice,
-                              EmotionType emotion, String reasonMemo, String stayMessage, boolean isPublic) {
+                              EmotionType emotion, String reasonMemo, String stayMessage,
+                              Boolean isTracking, boolean isPublic) {
         this.targetPrice = targetPrice;
         this.stopLossPrice = stopLossPrice;
         this.emotion = emotion;
         this.reasonMemo = reasonMemo;
         this.stayMessage = stayMessage;
+        if (isTracking != null) {
+            this.isTracking = isTracking;
+        }
         this.isPublic = isPublic;
     }
 

@@ -4,6 +4,7 @@ import com.stay.backend.domain.journal.entity.CurrencyType;
 import com.stay.backend.domain.journal.entity.EmotionType;
 import com.stay.backend.domain.journal.entity.HoldingPeriod;
 import com.stay.backend.domain.journal.entity.TradeType;
+import com.stay.backend.domain.stock.entity.ChartRangeType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -21,29 +22,25 @@ public record JournalCreateRequest(
         @NotNull(message = "종목 ID는 필수입니다.")
         Long stockId,
 
-        @Schema(description = "매매 유형 (BUY, SELL, REBALANCE)", example = "BUY")
-        @NotNull(message = "매매 유형은 필수입니다.")
+        @Schema(description = "매매/관망 유형 (BUY, SELL, REBALANCE, WATCH)", example = "WATCH")
         TradeType tradeType,
 
-        @Schema(description = "실제 매매 일시", example = "2026-08-14T10:30:00")
-        @NotNull(message = "매매 일시는 필수입니다.")
+        @Schema(description = "실제 매매/작성 일시", example = "2026-08-14T10:30:00")
+        @NotNull(message = "매매/작성 일시는 필수입니다.")
         LocalDateTime tradeDateTime,
 
         @Schema(description = "통화 (KRW, USD)", example = "USD")
         CurrencyType currency,
 
-        @Schema(description = "매매 단가", example = "125.5000")
-        @NotNull(message = "매매 단가는 필수입니다.")
+        @Schema(description = "매매 단가 (WATCH일 때는 생략 가능)", example = "125.5000")
         @Positive(message = "매매 단가는 양수여야 합니다.")
         BigDecimal price,
 
-        @Schema(description = "매매 수량", example = "10.0000")
-        @NotNull(message = "매매 수량은 필수입니다.")
+        @Schema(description = "매매 수량 (WATCH일 때는 생략 가능)", example = "10.0000")
         @Positive(message = "매매 수량은 양수여야 합니다.")
         BigDecimal quantity,
 
-        @Schema(description = "총 매매 금액", example = "1255.0000")
-        @NotNull(message = "총 매매 금액은 필수입니다.")
+        @Schema(description = "총 매매 금액 (WATCH일 때는 생략 가능)", example = "1255.0000")
         @Positive(message = "총 매매 금액은 양수여야 합니다.")
         BigDecimal totalPrice,
 
@@ -68,11 +65,18 @@ public record JournalCreateRequest(
         @NotBlank(message = "STAY 다짐 메시지는 필수입니다.")
         String stayMessage,
 
-        @Schema(description = "원칙 체크리스트 목록")
-        List<ChecklistRequest> checklists,
+        // 4단계: 주가 흐름 패턴 스냅샷 (시스템 자동 캡처 / 선택)
+        @Schema(description = "작성 당시 차트 기간 범위 (DAY_1: 1일/5분봉, WEEK_1: 1주/일봉, MONTH_3: 3개월/일봉, YEAR_1: 1년/주봉, YEAR_5: 5년/월봉)", example = "MONTH_3")
+        ChartRangeType chartRangeType,
 
-        @Schema(description = "피드 공개 여부 (기본값: false)", example = "false")
-        Boolean isPublic
+        @Schema(description = "작성 당시 차트 캔들 종가 궤적 리스트 (시스템 자동 캡처)", example = "[120.5, 122.0, 121.3, 125.0, 128.3]")
+        List<BigDecimal> pricePattern,
+
+        @Schema(description = "주가 흐름 패턴 추적 알림 활성화 여부 (기본값: true)", example = "true")
+        Boolean isTracking,
+
+        @Schema(description = "원칙 체크리스트 목록")
+        List<ChecklistRequest> checklists
 ) {
     @Schema(description = "원칙 체크리스트 항목 DTO")
     public record ChecklistRequest(
