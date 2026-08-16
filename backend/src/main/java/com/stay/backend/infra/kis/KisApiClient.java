@@ -1,5 +1,6 @@
 package com.stay.backend.infra.kis;
 
+import com.stay.backend.domain.stock.entity.StockExchange;
 import com.stay.backend.global.common.exception.CustomException;
 import com.stay.backend.global.common.exception.ErrorCode;
 import com.stay.backend.infra.kis.dto.KisOverseasPriceResponse;
@@ -9,9 +10,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.util.Map;
-import java.util.Set;
-
 /**
  * 한국투자증권 해외주식 시세 조회 HTTP REST 클라이언트
  */
@@ -20,11 +18,6 @@ import java.util.Set;
 public class KisApiClient {
 
     private static final String TR_ID_OVERSEAS_PRICE = "HHDFS76200200";
-    private static final String DEFAULT_EXCHANGE_NASDAQ = "NAS";
-    private static final String EXCHANGE_NYSE = "NYS";
-
-    // 뉴욕증권거래소(NYSE) 상장 반도체 종목 목록 (예: TSMC)
-    private static final Set<String> NYSE_TICKERS = Set.of("TSM");
 
     private final KisAuthManager authManager;
     private final RestClient restClient;
@@ -87,9 +80,6 @@ public class KisApiClient {
      * 종목 티커에 따른 거래소 코드(EXCD) 반환
      */
     public String getExchangeCodeByTicker(String ticker) {
-        if (ticker == null) {
-            return DEFAULT_EXCHANGE_NASDAQ;
-        }
-        return NYSE_TICKERS.contains(ticker.toUpperCase()) ? EXCHANGE_NYSE : DEFAULT_EXCHANGE_NASDAQ;
+        return StockExchange.fromTicker(ticker);
     }
 }
