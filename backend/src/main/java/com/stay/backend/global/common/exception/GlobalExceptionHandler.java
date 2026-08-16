@@ -41,6 +41,15 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCode.METHOD_NOT_ALLOWED));
     }
 
+    // JSON 파싱 오류 또는 Enum 바인딩 실패 예외 처리 (400 Bad Request)
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(org.springframework.http.converter.HttpMessageNotReadableException e) {
+        log.warn("HttpMessageNotReadableException: {}", e.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.INVALID_INPUT_VALUE.getStatus())
+                .body(ApiResponse.error(ErrorCode.INVALID_INPUT_VALUE));
+    }
+
     // 기타 예외 처리 (500 Internal Server Error)
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<ApiResponse<Void>> handleException(Exception e) {
