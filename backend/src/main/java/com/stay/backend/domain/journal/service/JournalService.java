@@ -1,5 +1,6 @@
 package com.stay.backend.domain.journal.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stay.backend.domain.journal.dto.JournalCreateRequest;
 import com.stay.backend.domain.journal.dto.JournalDetailResponse;
 import com.stay.backend.domain.journal.dto.JournalResponse;
@@ -15,11 +16,13 @@ import com.stay.backend.domain.user.entity.User;
 import com.stay.backend.domain.user.repository.UserRepository;
 import com.stay.backend.global.common.exception.CustomException;
 import com.stay.backend.global.common.exception.ErrorCode;
+import com.stay.backend.global.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Slf4j
@@ -42,22 +45,39 @@ public class JournalService {
         Stock stock = stockRepository.findById(request.stockId())
                 .orElseThrow(() -> new CustomException(ErrorCode.STOCK_NOT_FOUND));
 
+        // 엣지 방어: 주가 흐름 패턴 리스트를 JSON 문자열로 직렬화 (최소 5개 이상 캔들일 때만 유효 패턴 인정)
+        String pricePatternJson = (request.pricePattern() != null && request.pricePattern().size() >= 5)
+                ? JsonUtil.toJson(request.pricePattern())
+                : null;
+        boolean isTrackingActive = (pricePatternJson != null && Boolean.TRUE.equals(request.isTracking()));
+
+        // 매매/관망 기본 유형 방어 (기본값: WATCH)
+        TradeType targetTradeType = request.tradeType() != null ? request.tradeType() : TradeType.WATCH;
+
+        // BUY/SELL/REBALANCE인 경우 총 금액 자동 계산 보정
+        BigDecimal calculatedTotalPrice = request.totalPrice();
+        if (calculatedTotalPrice == null && request.price() != null && request.quantity() != null) {
+            calculatedTotalPrice = request.price().multiply(request.quantity());
+        }
+
         Journal journal = Journal.builder()
                 .user(user)
                 .stock(stock)
-                .tradeType(request.tradeType())
+                .tradeType(targetTradeType)
                 .tradeDateTime(request.tradeDateTime())
                 .currency(request.currency())
                 .price(request.price())
                 .quantity(request.quantity())
-                .totalPrice(request.totalPrice())
+                .totalPrice(calculatedTotalPrice)
                 .targetPrice(request.targetPrice())
                 .stopLossPrice(request.stopLossPrice())
                 .holdingPeriod(request.holdingPeriod())
                 .emotion(request.emotion())
                 .reasonMemo(request.reasonMemo())
                 .stayMessage(request.stayMessage())
-                .isPublic(request.isPublic())
+                .chartRangeType(request.chartRangeType())
+                .pricePattern(pricePatternJson)
+                .isTracking(isTrackingActive)
                 .build();
 
         Journal savedJournal = journalRepository.save(journal);
@@ -74,8 +94,8 @@ public class JournalService {
             journalChecklistRepository.saveAll(checklists);
         }
 
-        log.info("주식일지 작성 완료: journalId={}, userId={}, stockTicker={}",
-                savedJournal.getId(), userId, stock.getTicker());
+        log.info("주식일지 작성 완료: journalId={}, userId={}, stockTicker={}, tradeType={}, isTracking={}",
+                savedJournal.getId(), userId, stock.getTicker(), targetTradeType, isTrackingActive);
 
         return savedJournal.getId();
     }
@@ -125,6 +145,7 @@ public class JournalService {
                 request.emotion(),
                 request.reasonMemo(),
                 request.stayMessage(),
+                journal.getIsTracking(),
                 request.isPublic()
         );
 

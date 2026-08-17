@@ -4,6 +4,7 @@ import com.stay.backend.domain.journal.entity.CurrencyType;
 import com.stay.backend.domain.journal.entity.EmotionType;
 import com.stay.backend.domain.journal.entity.Journal;
 import com.stay.backend.domain.journal.entity.TradeType;
+import com.stay.backend.domain.stock.entity.ChartRangeType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -53,11 +54,11 @@ public record JournalResponse(
         @Schema(description = "미래의 나에게 보내는 STAY 다짐 메시지", example = "목표가 150달러 도달 전까지 절대 뇌동매도 금지!")
         String stayMessage,
 
-        @Schema(description = "피드 공개 여부", example = "true")
-        boolean isPublic,
+        @Schema(description = "작성 당시 차트 기간 범위 (DAY_1: 1일/5분봉, WEEK_1: 1주/일봉, MONTH_3: 3개월/일봉, YEAR_1: 1년/주봉, YEAR_5: 5년/월봉)", example = "MONTH_3")
+        ChartRangeType chartRangeType,
 
-        @Schema(description = "공감 수", example = "12")
-        int likeCount,
+        @Schema(description = "주가 흐름 패턴 추적 여부", example = "true")
+        Boolean isTracking,
 
         @Schema(description = "일지 작성 일시", example = "2026-08-14T10:35:00")
         LocalDateTime createdAt
@@ -78,8 +79,8 @@ public record JournalResponse(
                 journal.getStopLossPrice(),
                 journal.getEmotion(),
                 journal.getStayMessage(),
-                journal.isPublic(),
-                journal.getLikeCount(),
+                journal.getChartRangeType(),
+                journal.getIsTracking(),
                 journal.getCreatedAt()
         );
     }

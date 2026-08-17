@@ -6,6 +6,8 @@ import com.stay.backend.domain.journal.entity.HoldingPeriod;
 import com.stay.backend.domain.journal.entity.Journal;
 import com.stay.backend.domain.journal.entity.JournalChecklist;
 import com.stay.backend.domain.journal.entity.TradeType;
+import com.stay.backend.domain.stock.entity.ChartRangeType;
+import com.stay.backend.global.util.JsonUtil;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -64,11 +66,18 @@ public record JournalDetailResponse(
         @Schema(description = "미래의 나에게 보내는 STAY 다짐 메시지", example = "목표가 150달러 도달 전까지 절대 뇌동매도 금지!")
         String stayMessage,
 
-        @Schema(description = "피드 공개 여부", example = "true")
-        boolean isPublic,
+        // 4단계: 주가 흐름 패턴 스냅샷
+        @Schema(description = "작성 당시 차트 기간 범위 (DAY_1: 1일/5분봉, WEEK_1: 1주/일봉, MONTH_3: 3개월/일봉, YEAR_1: 1년/주봉, YEAR_5: 5년/월봉)", example = "MONTH_3")
+        ChartRangeType chartRangeType,
 
-        @Schema(description = "공감 수", example = "12")
-        int likeCount,
+        @Schema(description = "작성 당시 주가 흐름 궤적 리스트", example = "[120.5, 122.0, 121.3, 125.0, 128.3]")
+        List<BigDecimal> pricePattern,
+
+        @Schema(description = "주가 흐름 패턴 추적 여부", example = "true")
+        Boolean isTracking,
+
+        @Schema(description = "알림 트리거 임계치", example = "0.85")
+        Double similarityThreshold,
 
         // 원칙 체크리스트 목록
         @Schema(description = "매수 전 원칙 체크리스트 목록")
@@ -101,16 +110,7 @@ public record JournalDetailResponse(
             String name,
 
             @Schema(description = "종목 티커", example = "NVDA")
-            String ticker,
-
-            @Schema(description = "현재 체결가", example = "128.3000")
-            BigDecimal currentPrice,
-
-            @Schema(description = "변동 금액", example = "2.8000")
-            BigDecimal changePrice,
-
-            @Schema(description = "등락률", example = "2.23")
-            BigDecimal changeRate
+            String ticker
     ) {}
 
     @Schema(description = "체크리스트 항목 응답 DTO")
@@ -134,6 +134,8 @@ public record JournalDetailResponse(
     }
 
     public static JournalDetailResponse of(Journal journal, List<JournalChecklist> checklists) {
+        List<BigDecimal> parsedPattern = JsonUtil.parsePricePattern(journal.getPricePattern());
+
         return new JournalDetailResponse(
                 journal.getId(),
                 new AuthorInfo(
@@ -144,10 +146,7 @@ public record JournalDetailResponse(
                 new StockInfo(
                         journal.getStock().getId(),
                         journal.getStock().getName(),
-                        journal.getStock().getTicker(),
-                        journal.getStock().getCurrentPrice(),
-                        journal.getStock().getChangePrice(),
-                        journal.getStock().getChangeRate()
+                        journal.getStock().getTicker()
                 ),
                 journal.getTradeType(),
                 journal.getTradeDateTime(),
@@ -161,8 +160,10 @@ public record JournalDetailResponse(
                 journal.getEmotion(),
                 journal.getReasonMemo(),
                 journal.getStayMessage(),
-                journal.isPublic(),
-                journal.getLikeCount(),
+                journal.getChartRangeType(),
+                parsedPattern,
+                journal.getIsTracking(),
+                journal.getSimilarityThreshold(),
                 checklists.stream().map(ChecklistResponse::from).toList(),
                 journal.getCreatedAt(),
                 journal.getUpdatedAt()
