@@ -21,9 +21,6 @@ public record NotificationResponse(
         @Schema(description = "알림 유형", example = "PATTERN_MATCHED")
         NotificationType type,
 
-        @Schema(description = "알림 제목", example = "엔비디아 과거 주가 흐름 재현!")
-        String title,
-
         @Schema(description = "미래의 나에게 보내는 STAY 다짐 메시지", example = "목표가 150달러 도달 전까지 절대 뇌동매도 금지!")
         String stayMessage,
 
@@ -45,7 +42,6 @@ public record NotificationResponse(
                 notification.getJournalId(),
                 notification.getTicker(),
                 notification.getType(),
-                notification.getTitle(),
                 notification.getStayMessage(),
                 notification.getCurrentPrice(),
                 notification.getTargetPrice(),

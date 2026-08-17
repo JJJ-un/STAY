@@ -49,10 +49,6 @@ public class Notification extends BaseTimeEntity {
     @Column(name = "notification_type", length = 30, nullable = false)
     private NotificationType type;
 
-    // 알림 제목
-    @Column(name = "title", length = 100, nullable = false)
-    private String title;
-
     // 미래의 나에게 보내는 STAY 다짐 메시지
     @Column(name = "stay_message", columnDefinition = "TEXT", nullable = false)
     private String stayMessage;
@@ -71,13 +67,11 @@ public class Notification extends BaseTimeEntity {
 
     @Builder
     public Notification(User user, Long journalId, String ticker, NotificationType type,
-                        String title, String stayMessage, BigDecimal currentPrice,
-                        BigDecimal targetPrice) {
+                        String stayMessage, BigDecimal currentPrice, BigDecimal targetPrice) {
         this.user = user;
         this.journalId = journalId;
         this.ticker = ticker;
         this.type = type;
-        this.title = title;
         this.stayMessage = stayMessage;
         this.currentPrice = currentPrice;
         this.targetPrice = targetPrice;
