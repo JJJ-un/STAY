@@ -16,6 +16,7 @@ import com.stay.backend.domain.user.entity.User;
 import com.stay.backend.domain.user.repository.UserRepository;
 import com.stay.backend.global.common.exception.CustomException;
 import com.stay.backend.global.common.exception.ErrorCode;
+import com.stay.backend.global.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,6 @@ public class JournalService {
     private final JournalChecklistRepository journalChecklistRepository;
     private final UserRepository userRepository;
     private final StockRepository stockRepository;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // 1. 주식일지 작성
     @Transactional
@@ -46,7 +46,9 @@ public class JournalService {
                 .orElseThrow(() -> new CustomException(ErrorCode.STOCK_NOT_FOUND));
 
         // 엣지 방어: 주가 흐름 패턴 리스트를 JSON 문자열로 직렬화 (최소 5개 이상 캔들일 때만 유효 패턴 인정)
-        String pricePatternJson = serializePricePattern(request.pricePattern());
+        String pricePatternJson = (request.pricePattern() != null && request.pricePattern().size() >= 5)
+                ? JsonUtil.toJson(request.pricePattern())
+                : null;
         boolean isTrackingActive = (pricePatternJson != null && Boolean.TRUE.equals(request.isTracking()));
 
         // 매매/관망 기본 유형 방어 (기본값: WATCH)
@@ -167,18 +169,6 @@ public class JournalService {
     private void validateJournalAuthor(Journal journal, Long currentUserId) {
         if (!journal.getUser().getId().equals(currentUserId)) {
             throw new CustomException(ErrorCode.UNAUTHORIZED_JOURNAL_ACCESS);
-        }
-    }
-
-    private String serializePricePattern(List<BigDecimal> pattern) {
-        if (pattern == null || pattern.size() < 5) {
-            return null; // 최소 5개 이상의 캔들 데이터가 있어야 유효한 패턴으로 저장
-        }
-        try {
-            return objectMapper.writeValueAsString(pattern);
-        } catch (Exception e) {
-            log.warn("주가 흐름 패턴 JSON 직렬화 실패: error={}", e.getMessage());
-            return null;
         }
     }
 }

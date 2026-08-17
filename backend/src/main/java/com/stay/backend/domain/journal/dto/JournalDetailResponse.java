@@ -1,7 +1,5 @@
 package com.stay.backend.domain.journal.dto;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stay.backend.domain.journal.entity.CurrencyType;
 import com.stay.backend.domain.journal.entity.EmotionType;
 import com.stay.backend.domain.journal.entity.HoldingPeriod;
@@ -9,11 +7,11 @@ import com.stay.backend.domain.journal.entity.Journal;
 import com.stay.backend.domain.journal.entity.JournalChecklist;
 import com.stay.backend.domain.journal.entity.TradeType;
 import com.stay.backend.domain.stock.entity.ChartRangeType;
+import com.stay.backend.global.util.JsonUtil;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 
 @Schema(description = "주식일지 단건 상세 조회용 전체 응답 DTO")
@@ -91,8 +89,6 @@ public record JournalDetailResponse(
         @Schema(description = "일지 최종 수정 일시", example = "2026-08-14T11:00:00")
         LocalDateTime updatedAt
 ) {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
     @Schema(description = "작성자 정보 DTO")
     public record AuthorInfo(
             @Schema(description = "작성자 ID", example = "1")
@@ -138,7 +134,7 @@ public record JournalDetailResponse(
     }
 
     public static JournalDetailResponse of(Journal journal, List<JournalChecklist> checklists) {
-        List<BigDecimal> parsedPattern = parsePatternJson(journal.getPricePattern());
+        List<BigDecimal> parsedPattern = JsonUtil.parsePricePattern(journal.getPricePattern());
 
         return new JournalDetailResponse(
                 journal.getId(),
@@ -172,16 +168,5 @@ public record JournalDetailResponse(
                 journal.getCreatedAt(),
                 journal.getUpdatedAt()
         );
-    }
-
-    private static List<BigDecimal> parsePatternJson(String json) {
-        if (json == null || json.isBlank()) {
-            return Collections.emptyList();
-        }
-        try {
-            return OBJECT_MAPPER.readValue(json, new TypeReference<List<BigDecimal>>() {});
-        } catch (Exception e) {
-            return Collections.emptyList();
-        }
     }
 }

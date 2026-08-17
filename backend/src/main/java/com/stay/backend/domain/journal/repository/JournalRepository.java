@@ -29,4 +29,8 @@ public interface JournalRepository extends JpaRepository<Journal, Long> {
     // 추천 다짐 롤링 카세트 상위 N개 (공개 일지 중 최신 다짐)
     @Query("SELECT j FROM Journal j JOIN FETCH j.stock WHERE j.isPublic = true AND j.stayMessage IS NOT NULL ORDER BY j.createdAt DESC")
     List<Journal> findTopRecommendedCommitments(Pageable pageable);
+
+    // 패턴 추적 활성화(isTracking = true)된 전체 일지 조회 (작성자 및 종목 정보 Fetch Join)
+    @Query("SELECT j FROM Journal j JOIN FETCH j.user JOIN FETCH j.stock WHERE j.isTracking = true AND j.pricePattern IS NOT NULL")
+    List<Journal> findAllActiveTrackingJournals();
 }
