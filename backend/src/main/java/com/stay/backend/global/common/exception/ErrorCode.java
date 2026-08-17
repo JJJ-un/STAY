@@ -23,7 +23,10 @@ public enum ErrorCode {
 
     // Journal (주식일지)
     JOURNAL_NOT_FOUND(HttpStatus.NOT_FOUND, "J001", "존재하지 않는 주식일지입니다."),
-    UNAUTHORIZED_JOURNAL_ACCESS(HttpStatus.FORBIDDEN, "J002", "해당 주식일지에 대한 접근 권한이 없습니다.");
+    UNAUTHORIZED_JOURNAL_ACCESS(HttpStatus.FORBIDDEN, "J002", "해당 주식일지에 대한 접근 권한이 없습니다."),
+
+    // Notification (알림)
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "존재하지 않는 알림입니다.");
 
     private final HttpStatus status;
     private final String code;

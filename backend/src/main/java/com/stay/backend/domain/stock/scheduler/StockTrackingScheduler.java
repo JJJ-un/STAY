@@ -1,5 +1,6 @@
 package com.stay.backend.domain.stock.scheduler;
 
+import com.stay.backend.domain.notification.service.NotificationService;
 import com.stay.backend.domain.stock.service.StockTrackingService;
 import com.stay.backend.domain.stock.service.StockTrackingService.TrackingAlertResult;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.List;
 public class StockTrackingScheduler {
 
     private final StockTrackingService stockTrackingService;
+    private final NotificationService notificationService;
 
     /**
      * 1분(60,000ms) 주기로 활성 일지들을 실시간 대조 감시
@@ -30,10 +32,7 @@ public class StockTrackingScheduler {
             if (!alerts.isEmpty()) {
                 log.info("[스케줄러] 총 {}건의 STAY 다짐/목표가 알림 발생!", alerts.size());
                 for (TrackingAlertResult alert : alerts) {
-                    log.info("[알림 대상] userId={}, journalId={}, ticker={}, 유사도={}%, 목표가도달={}, 손절가도달={}, 다짐=\"{}\"",
-                            alert.userId(), alert.journalId(), alert.ticker(),
-                            String.format("%.2f", alert.similarity() * 100),
-                            alert.isTargetReached(), alert.isStopLossReached(), alert.stayMessage());
+                    notificationService.createTrackingAlert(alert);
                 }
             }
         } catch (Exception e) {
