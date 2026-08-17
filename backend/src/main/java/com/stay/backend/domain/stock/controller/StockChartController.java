@@ -1,9 +1,11 @@
 package com.stay.backend.domain.stock.controller;
 
 import com.stay.backend.domain.stock.dto.StockChartResponse;
+import com.stay.backend.domain.stock.dto.StockTimelineMarkerResponse;
 import com.stay.backend.domain.stock.entity.ChartRangeType;
 import com.stay.backend.domain.stock.service.StockChartService;
 import com.stay.backend.global.common.response.ApiResponse;
+import com.stay.backend.global.config.security.CurrentUserId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-@Tag(name = "Stock Chart", description = "해외 반도체 주식 차트 시세 API")
+@Tag(name = "Stock Chart", description = "해외 반도체 주식 차트 시세 및 타임라인 뱃지 API")
 @RestController
 @RequestMapping("/api/v1/stocks")
 @RequiredArgsConstructor
@@ -42,5 +44,20 @@ public class StockChartController {
     ) {
         List<StockChartResponse> chartData = stockChartService.getChartData(ticker, range, baseDate);
         return ResponseEntity.ok(ApiResponse.success(chartData));
+    }
+
+    @Operation(
+            summary = "차트 하단 X축 타임라인 일지 마커 뱃지 목록 조회",
+            description = "해당 종목의 차트 X축 날짜 레일에 꽂아줄 일자별 매수/매도/관망 일지 집계 뱃지 및 다짐 요약 리스트를 조회합니다."
+    )
+    @GetMapping("/{ticker}/timeline-markers")
+    public ResponseEntity<ApiResponse<List<StockTimelineMarkerResponse>>> getTimelineMarkers(
+            @Parameter(description = "종목 티커 (예: NVDA, AMD, TSM)", example = "NVDA")
+            @PathVariable String ticker,
+
+            @CurrentUserId Long userId
+    ) {
+        List<StockTimelineMarkerResponse> markers = stockChartService.getTimelineMarkers(userId, ticker);
+        return ResponseEntity.ok(ApiResponse.success(markers));
     }
 }
