@@ -9,10 +9,11 @@ import {
 } from '@/features/timeline-markers'
 
 interface StockChartProps {
+  ticker?: string
   onJournalClick?: (journalId: number) => void
 }
 
-export function StockChart({ onJournalClick }: StockChartProps) {
+export function StockChart({ ticker = 'NVDA', onJournalClick }: StockChartProps) {
   const [range, setRange] = useState<ChartRangeType>('MONTH_3')
   const [selectedMarker, setSelectedMarker] = useState<StockTimelineMarker | null>(
     ALL_MOCK_TIMELINE_MARKERS[1]
@@ -42,7 +43,7 @@ export function StockChart({ onJournalClick }: StockChartProps) {
         />
 
         {/* 📈 [Feature 1] 캔버스 차트 영역 */}
-        <StockChartCanvas range={range} />
+        <StockChartCanvas ticker={ticker} range={range} />
 
         {/* 📍 [Feature 2] 차트 하단 타임라인 마커 뱃지 레일 */}
         <TimelineMarkerRail

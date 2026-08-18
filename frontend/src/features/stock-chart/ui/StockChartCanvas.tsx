@@ -1,16 +1,18 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createChart, type IChartApi, type ISeriesApi, AreaSeries, type Time } from 'lightweight-charts'
-import type { ChartRangeType } from '@/entities/stock'
-import { MOCK_CHART_SERIES } from '../model/mock'
+import { getStockChart, type ChartRangeType } from '@/entities/stock'
+import { MOCK_CHART_SERIES, toChartTime } from '../model/mock'
 
 interface StockChartCanvasProps {
+  ticker?: string
   range: ChartRangeType
 }
 
-export function StockChartCanvas({ range }: StockChartCanvasProps) {
+export function StockChartCanvas({ ticker = 'NVDA', range }: StockChartCanvasProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Area'> | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(false)
 
   // 1. 차트 인스턴스 생성 및 캔버스 초기화
   useEffect(() => {
@@ -76,7 +78,7 @@ export function StockChartCanvas({ range }: StockChartCanvasProps) {
     }
   }, [])
 
-  // 2. 탭 전환 시 시세 데이터 및 시간축 포맷 갱신
+  // 2. 탭 전환 또는 ticker 변경 시 실제 API 데이터 페칭 및 캔버스 갱신
   useEffect(() => {
     if (!seriesRef.current || !chartRef.current) return
 
@@ -88,14 +90,46 @@ export function StockChartCanvas({ range }: StockChartCanvasProps) {
       },
     })
 
-    const data = MOCK_CHART_SERIES[range]
-    seriesRef.current.setData(data as { time: Time; value: number }[])
-    chartRef.current.timeScale().fitContent()
-  }, [range])
+    let isMounted = true
+    setIsLoading(true)
+
+    getStockChart(ticker, range)
+      .then((items) => {
+        if (!isMounted || !seriesRef.current || !chartRef.current) return
+
+        if (items && items.length > 0) {
+          const chartData = items.map((item) => ({
+            time: toChartTime(item.dateTime, isMinute),
+            value: item.price,
+          }))
+          seriesRef.current.setData(chartData)
+        } else {
+          // 데이터가 없을 경우 Mock 폴백
+          seriesRef.current.setData(MOCK_CHART_SERIES[range] as { time: Time; value: number }[])
+        }
+        chartRef.current.timeScale().fitContent()
+      })
+      .catch(() => {
+        if (!isMounted || !seriesRef.current || !chartRef.current) return
+        // API 에러 시에도 안전하게 Mock 폴백
+        seriesRef.current.setData(MOCK_CHART_SERIES[range] as { time: Time; value: number }[])
+        chartRef.current.timeScale().fitContent()
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [ticker, range])
 
   return (
     <div className="relative pt-1 w-full overflow-hidden">
-      <div ref={chartContainerRef} className="w-full" />
+      <div
+        ref={chartContainerRef}
+        className={`w-full transition-opacity duration-300 ${isLoading ? 'opacity-50' : 'opacity-100'}`}
+      />
     </div>
   )
 }

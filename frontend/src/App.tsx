@@ -103,8 +103,8 @@ export function App() {
   // 경로에 따른 메인 본문 콘텐츠 렌더링
   const renderPage = () => {
     if (pathname.startsWith('/stock/')) {
-      const stockId = pathname.replace('/stock/', '') || '1'
-      return <StockDetailPage stockId={stockId} onNavigate={handleNavigate} />
+      const ticker = pathname.replace('/stock/', '') || 'NVDA'
+      return <StockDetailPage ticker={ticker} onNavigate={handleNavigate} />
     }
 
     if (pathname.startsWith('/journal/detail')) {

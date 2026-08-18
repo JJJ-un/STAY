@@ -5,23 +5,20 @@ import { StockChart } from '@/widgets/stock-chart'
 import { getStockDetail, type StockResponse } from '@/entities/stock'
 
 interface StockDetailPageProps {
-  stockId: string
+  ticker?: string
   onNavigate?: (path: string) => void
 }
 
-export function StockDetailPage({ stockId, onNavigate }: StockDetailPageProps) {
+export function StockDetailPage({ ticker = 'NVDA', onNavigate }: StockDetailPageProps) {
   const [stock, setStock] = useState<StockResponse | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
-  // 실제 백엔드 종목 상세 API 연동 (티커 기준 또는 기본 NVDA)
+  // 실제 백엔드 종목 상세 API 연동 (100% 티커 단일 체계)
   useEffect(() => {
     let isMounted = true
     setIsLoading(true)
 
-    // stockId가 숫자 1 등인 경우 기본 NVDA, 문자열이면 해당 티커로 호출
-    const targetTicker = (!stockId || stockId === '1') ? 'NVDA' : stockId
-
-    getStockDetail(targetTicker)
+    getStockDetail(ticker)
       .then((data) => {
         if (isMounted) {
           setStock(data)
@@ -34,8 +31,8 @@ export function StockDetailPage({ stockId, onNavigate }: StockDetailPageProps) {
           // 백엔드 미실행 시 안전한 기본 시세 세팅
           setStock({
             stockId: 1,
-            name: '엔비디아',
-            ticker: 'NVDA',
+            name: ticker === 'NVDA' ? '엔비디아 (NVIDIA)' : ticker,
+            ticker: ticker,
             currentPrice: 128.3,
             changePrice: 2.5,
             changeRate: 1.98,
@@ -49,7 +46,7 @@ export function StockDetailPage({ stockId, onNavigate }: StockDetailPageProps) {
     return () => {
       isMounted = false
     }
-  }, [stockId])
+  }, [ticker])
 
   const handleWriteJournal = () => {
     if (onNavigate && stock) {
@@ -66,14 +63,14 @@ export function StockDetailPage({ stockId, onNavigate }: StockDetailPageProps) {
   return (
     <div className="flex-1 p-4 space-y-5 bg-white">
       <StockHeader stock={stock} isLoading={isLoading} />
-      <StockChart onJournalClick={handleJournalClick} />
+      <StockChart ticker={ticker} onJournalClick={handleJournalClick} />
 
       {/* 3. 이 종목 나만의 매매 원칙 */}
       <div className="bg-slate-50/80 p-4 rounded-3xl space-y-3">
         <div className="flex items-center gap-1.5 text-blue-600">
           <ShieldAlert className="w-4 h-4" />
           <h2 className="text-xs font-black text-slate-900">
-            {stock?.name || '종목'} 나만의 원칙 체크
+            {stock?.name || ticker} 나만의 원칙 체크
           </h2>
         </div>
         <ul className="space-y-2">
@@ -96,7 +93,7 @@ export function StockDetailPage({ stockId, onNavigate }: StockDetailPageProps) {
           className="w-full py-4 px-4 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-black text-sm rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
         >
           <Edit3 className="w-4 h-4" />
-          {stock?.name || '종목'} 주식일지 작성하기
+          {stock?.name || ticker} 주식일지 작성하기
         </button>
       </div>
     </div>

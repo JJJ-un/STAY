@@ -1,6 +1,16 @@
 // 5대 차트 기간 탭
 export type ChartRangeType = 'DAY_1' | 'WEEK_1' | 'MONTH_3' | 'YEAR_1' | 'YEAR_5'
 
+// 백엔드 StockChartResponse DTO (실제 차트 시세 데이터)
+export interface StockChartItem {
+  dateTime: string // 일봉: YYYY-MM-DD, 5분봉: YYYY-MM-DD HH:mm:ss
+  price: number
+  high?: number
+  low?: number
+  rate?: number
+  volume?: number
+}
+
 // 타임라인 마커 팝업용 일지 요약 DTO 
 export interface JournalMarkerSummary {
   journalId: number

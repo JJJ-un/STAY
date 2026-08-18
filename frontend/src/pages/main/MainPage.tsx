@@ -44,7 +44,7 @@ export function MainPage({ onNavigate }: MainPageProps) {
               <StockList
                 filter={stockFilter}
                 showRank={true}
-                onSelectStock={(stockId) => onNavigate?.(`/stock/${stockId}`)}
+                onSelectStock={(ticker) => onNavigate?.(`/stock/${ticker}`)}
               />
             </div>
           </div>
