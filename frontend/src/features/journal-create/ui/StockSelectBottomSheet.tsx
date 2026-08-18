@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, X, Check } from 'lucide-react'
-import type { StockOption } from '../model/types'
+import { getStocks } from '@/entities/stock'
+import type { StockResponse } from '@/entities/stock'
+import type { StockOption } from '../types'
 
 interface StockSelectBottomSheetProps {
   isOpen: boolean
@@ -9,18 +11,6 @@ interface StockSelectBottomSheetProps {
   selectedStockId: string
 }
 
-export const POPULAR_STOCKS: StockOption[] = [
-  { id: '1', name: '삼성전자', code: '005930', market: 'KOSPI', currentPrice: 71500, currency: 'KRW' },
-  { id: '2', name: 'SK하이닉스', code: '000660', market: 'KOSPI', currentPrice: 192000, currency: 'KRW' },
-  { id: '3', name: '한미반도체', code: '042700', market: 'KOSPI', currentPrice: 104500, currency: 'KRW' },
-  { id: '4', name: '현대차', code: '005380', market: 'KOSPI', currentPrice: 245000, currency: 'KRW' },
-  { id: '5', name: 'NAVER', code: '035420', market: 'KOSPI', currentPrice: 172400, currency: 'KRW' },
-  { id: '6', name: '카카오', code: '035720', market: 'KOSPI', currentPrice: 38900, currency: 'KRW' },
-  { id: '7', name: '엔비디아 (NVIDIA)', code: 'NVDA', market: 'NASDAQ', currentPrice: 128, currency: 'USD' },
-  { id: '8', name: '애플 (Apple)', code: 'AAPL', market: 'NASDAQ', currentPrice: 224, currency: 'USD' },
-  { id: '9', name: '테슬라 (Tesla)', code: 'TSLA', market: 'NASDAQ', currentPrice: 215, currency: 'USD' },
-]
-
 export function StockSelectBottomSheet({
   isOpen,
   onClose,
@@ -28,14 +18,36 @@ export function StockSelectBottomSheet({
   selectedStockId,
 }: StockSelectBottomSheetProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [stocks, setStocks] = useState<StockResponse[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  // 바텀시트가 열리거나 검색어가 바뀔 때 백엔드 실제 종목 API 호출
+  useEffect(() => {
+    if (!isOpen) return
+
+    let isMounted = true
+    const fetchStocks = async () => {
+      setIsLoading(true)
+      try {
+        const data = await getStocks('VOLUME', searchQuery)
+        if (isMounted) {
+          setStocks(data || [])
+        }
+      } catch (error) {
+        console.error('종목 목록 로드 실패:', error)
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    fetchStocks()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isOpen, searchQuery])
 
   if (!isOpen) return null
-
-  const filteredStocks = POPULAR_STOCKS.filter(
-    (stock) =>
-      stock.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      stock.code.toLowerCase().includes(searchQuery.toLowerCase())
-  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 backdrop-blur-sm transition-opacity animate-in fade-in duration-200">
@@ -66,25 +78,36 @@ export function StockSelectBottomSheet({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="종목명 또는 종목코드 검색"
+            placeholder="종목명 또는 티커 검색 (예: NVDA, AMD)"
             className="w-full bg-slate-100 rounded-2xl pl-10 pr-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-slate-50 focus:ring-2 focus:ring-blue-600 transition-all"
           />
         </div>
 
-        {/* 종목 리스트 */}
+        {/* 종목 리스트 (실제 백엔드 API 데이터) */}
         <div className="flex-1 overflow-y-auto space-y-1.5 pt-1 pr-1 scrollbar-none">
-          {filteredStocks.length === 0 ? (
+          {isLoading ? (
+            <div className="py-10 text-center text-xs text-slate-400">
+              종목을 불러오는 중입니다...
+            </div>
+          ) : stocks.length === 0 ? (
             <div className="py-10 text-center text-xs text-slate-400">
               검색 결과가 없습니다.
             </div>
           ) : (
-            filteredStocks.map((stock) => {
-              const isSelected = stock.id === selectedStockId
+            stocks.map((stock) => {
+              const isSelected = String(stock.stockId) === selectedStockId
               return (
                 <div
-                  key={stock.id}
+                  key={stock.stockId}
                   onClick={() => {
-                    onSelect(stock)
+                    onSelect({
+                      id: String(stock.stockId),
+                      name: stock.name,
+                      code: stock.ticker,
+                      market: 'NASDAQ',
+                      currentPrice: stock.currentPrice,
+                      currency: 'USD',
+                    })
                     onClose()
                   }}
                   className={`p-3.5 rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
@@ -97,17 +120,15 @@ export function StockSelectBottomSheet({
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold">{stock.name}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold">
-                        {stock.market}
+                        US
                       </span>
                     </div>
-                    <span className="text-xs text-slate-400">{stock.code}</span>
+                    <span className="text-xs text-slate-400">{stock.ticker}</span>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <span className="text-xs font-bold tabular-nums">
-                      {stock.currency === 'KRW'
-                        ? `${stock.currentPrice.toLocaleString()}원`
-                        : `$${stock.currentPrice}`}
+                      ${stock.currentPrice.toLocaleString()}
                     </span>
                     {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
                   </div>

@@ -1,5 +1,5 @@
 import { CheckSquare } from 'lucide-react'
-import type { JournalFormState, HoldingPeriodType } from '../model/types'
+import type { JournalFormState, HoldingPeriodType } from '../types'
 
 interface StepRulesProps {
   form: JournalFormState

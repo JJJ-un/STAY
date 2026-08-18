@@ -1,4 +1,4 @@
-import type { TradeType, CurrencyType, EmotionType, HoldingPeriodType } from '@/features/journal-create/model/types'
+import type { TradeType, CurrencyType, EmotionType, HoldingPeriodType } from '@/features/journal-create'
 
 export type JournalFilterType = 'ALL' | TradeType
 

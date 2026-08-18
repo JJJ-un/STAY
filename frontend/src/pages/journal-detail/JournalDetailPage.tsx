@@ -1,13 +1,13 @@
+import { useSearchParams } from 'react-router-dom'
 import { CheckSquare, Calculator, ShieldAlert, Target } from 'lucide-react'
 import type { JournalListItemData } from '@/features/journal-list'
 import { MOCK_JOURNAL_LIST } from '@/features/journal-list'
+import type { TradeType } from '@/entities/journal'
 
-interface JournalDetailPageProps {
-  journalId?: string
-  onNavigate?: (path: string) => void
-}
+export function JournalDetailPage() {
+  const [searchParams] = useSearchParams()
+  const journalId = searchParams.get('id') || 'j1'
 
-export function JournalDetailPage({ journalId = 'j1', onNavigate }: JournalDetailPageProps) {
   // 해당 ID의 일지 데이터 조회 (없을 경우 첫 번째 MOCK 데이터 사용)
   const journal: JournalListItemData =
     MOCK_JOURNAL_LIST.find((item) => item.id === journalId) || MOCK_JOURNAL_LIST[0]
@@ -30,13 +30,13 @@ export function JournalDetailPage({ journalId = 'j1', onNavigate }: JournalDetai
       ? (((stopLossNum - parsedPrice) / parsedPrice) * 100).toFixed(1)
       : null
 
-  const tradeTypeColorMap = {
+  const tradeTypeColorMap: Record<TradeType, { bg: string; text: string; label: string }> = {
     BUY: { bg: 'bg-red-50', text: 'text-red-600', label: '매수' },
     SELL: { bg: 'bg-blue-50', text: 'text-blue-600', label: '매도' },
-    REBALANCE: { bg: 'bg-slate-200/80', text: 'text-slate-800', label: '리밸런싱' },
+    WATCH: { bg: 'bg-slate-200/80', text: 'text-slate-800', label: '관망' },
   }
 
-  const tradeTypeInfo = tradeTypeColorMap[journal.tradeType]
+  const tradeTypeInfo = tradeTypeColorMap[journal.tradeType as TradeType]
 
   return (
     <div className="flex-1 p-4 pb-24 space-y-5 animate-in fade-in duration-300">

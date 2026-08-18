@@ -9,14 +9,13 @@ const JOURNAL_TAB_ITEMS: TabItem<JournalFilterType>[] = [
   { id: 'ALL', label: '전체' },
   { id: 'BUY', label: '매수' },
   { id: 'SELL', label: '매도' },
-  { id: 'REBALANCE', label: '리밸런싱' },
+  { id: 'WATCH', label: '관망' },
 ]
 
-interface JournalPageProps {
-  onNavigate?: (path: string) => void
-}
+import { useNavigate } from 'react-router-dom'
 
-export function JournalPage({ onNavigate }: JournalPageProps) {
+export function JournalPage() {
+  const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<JournalFilterType>('ALL')
 
   return (
@@ -37,8 +36,8 @@ export function JournalPage({ onNavigate }: JournalPageProps) {
       <div className="flex-1 p-4 pb-20">
         <JournalList
           filter={activeFilter}
-          onCardClick={(id) => onNavigate?.(`/journal/detail?id=${id}`)}
-          onWriteClick={() => onNavigate?.('/journal/write')}
+          onCardClick={(id) => navigate(`/journal/detail?id=${id}`)}
+          onWriteClick={() => navigate('/journal/write')}
         />
       </div>
     </div>

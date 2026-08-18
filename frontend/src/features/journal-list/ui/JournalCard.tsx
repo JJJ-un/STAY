@@ -1,5 +1,5 @@
 import type { JournalListItemData } from '../model/types'
-import type { TradeType } from '@/features/journal-create/model/types'
+import type { TradeType } from '@/features/journal-create'
 
 interface JournalCardProps {
   item: JournalListItemData
@@ -15,7 +15,7 @@ export function JournalCard({ item, onCardClick }: JournalCardProps) {
   const tradeTypeColorMap: Record<TradeType, { bg: string; text: string; label: string }> = {
     BUY: { bg: 'bg-red-50', text: 'text-red-600', label: '매수' },
     SELL: { bg: 'bg-blue-50', text: 'text-blue-600', label: '매도' },
-    REBALANCE: { bg: 'bg-slate-200/80', text: 'text-slate-800', label: '리밸런싱' },
+    WATCH: { bg: 'bg-slate-200/80', text: 'text-slate-800', label: '관망' },
   }
 
   const tradeTypeInfo = tradeTypeColorMap[item.tradeType]
