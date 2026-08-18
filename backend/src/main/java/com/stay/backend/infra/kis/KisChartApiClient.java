@@ -49,17 +49,19 @@ public class KisChartApiClient {
 
         try {
             return restClient.get()
-                    .uri(baseUrl + "/uapi/overseas-price/v1/quotations/daily-chartprice" +
+                    .uri(baseUrl + "/uapi/overseas-price/v1/quotations/inquire-daily-chartprice" +
                             "?AUTH=" +
                             "&EXCD=" + exchangeCode +
                             "&SYMB=" + ticker +
                             "&GUBN=" + gubnCode +
                             "&BYMD=" + targetBaseDate +
                             "&MODP=1")
+                    .header("content-type", "application/json; charset=utf-8")
                     .header("authorization", "Bearer " + token)
                     .header("appkey", appKey)
                     .header("appsecret", appSecret)
                     .header("tr_id", TR_ID_PERIOD_CHART)
+                    .header("custtype", "P")
                     .retrieve()
                     .body(KisChartPriceResponse.class);
         } catch (Exception e) {
@@ -89,10 +91,12 @@ public class KisChartApiClient {
                             "&NREC=120" +
                             "&FILL=" +
                             "&KEYB=")
+                    .header("content-type", "application/json; charset=utf-8")
                     .header("authorization", "Bearer " + token)
                     .header("appkey", appKey)
                     .header("appsecret", appSecret)
                     .header("tr_id", TR_ID_MINUTE_CHART)
+                    .header("custtype", "P")
                     .retrieve()
                     .body(KisMinuteChartPriceResponse.class);
         } catch (Exception e) {

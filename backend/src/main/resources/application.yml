@@ -41,10 +41,9 @@ app:
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:5173/oauth/callback}
 
-# 한국투자증권 KIS Open API 설정
+# 한국투자증권 KIS Open API 설정 (실전투자 서버)
 koreainvest:
   api:
     key: "PSAWwehjcAUqGW75wtGAeE2PnWKxSyZpHIPr"
     secret: "w9mlcxQ7gAA00jZWS6RWn2Fpzta2kUE+aYDqeXZ0W7MAvBD+bnOeMqQ97NYYJiTMifv8XFA6Xeigp6mceUJhZeixr5wRUwsiARJ8ZKoHrzlmzFRvmylRY5ot2eq3AxSIyEGFW1sZEC5gRVanORN4PEJ15hvRvjGUN8l/9L2V3M/U0trJ5j4="
-    url: "https://openapivts.koreainvestment.com:29443"
-    ws-url: "ws://ops.koreainvestment.com:31000"
+    url: "https://openapi.koreainvestment.com:9443"
