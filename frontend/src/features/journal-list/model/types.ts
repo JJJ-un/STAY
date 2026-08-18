@@ -1,5 +1,7 @@
 import type { TradeType, CurrencyType, EmotionType, HoldingPeriodType } from '@/features/journal-create/model/types'
 
+export type JournalFilterType = 'ALL' | TradeType
+
 export interface JournalListItemData {
   id: string
   stockId: string

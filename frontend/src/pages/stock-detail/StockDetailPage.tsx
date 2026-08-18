@@ -65,10 +65,7 @@ export function StockDetailPage({ stockId, onNavigate }: StockDetailPageProps) {
 
   return (
     <div className="flex-1 p-4 space-y-5 bg-white">
-      {/* 1. [위젯 조립] 실제 API 연동된 종목 헤더 위젯 */}
       <StockHeader stock={stock} isLoading={isLoading} />
-
-      {/* 2. [위젯 조립] 차트 & 타임라인 마커 뱃지 위젯 */}
       <StockChart onJournalClick={handleJournalClick} />
 
       {/* 3. 이 종목 나만의 매매 원칙 */}
