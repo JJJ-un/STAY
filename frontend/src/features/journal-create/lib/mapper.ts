@@ -69,6 +69,7 @@ export function toJournalUpdateRequest(form: JournalFormState): JournalUpdateReq
     emotion: form.emotion,
     reasonMemo: form.reasonMemo?.trim() || undefined,
     stayMessage: form.stayMessage.trim(),
+    isPublic: false,
   }
 }
 

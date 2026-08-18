@@ -58,6 +58,7 @@ export interface JournalUpdateRequest {
   emotion?: EmotionType
   reasonMemo?: string
   stayMessage: string
+  isPublic?: boolean
 }
 
 // 주식일지 목록 응답 DTO (GET /api/v1/journals)

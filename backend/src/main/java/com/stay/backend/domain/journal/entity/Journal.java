@@ -131,18 +131,29 @@ public class Journal extends BaseTimeEntity {
         this.likeCount = 0;
     }
 
-    public void updateJournal(BigDecimal targetPrice, BigDecimal stopLossPrice,
+    public void updateJournal(TradeType tradeType, LocalDateTime tradeDateTime, CurrencyType currency,
+                              BigDecimal price, BigDecimal quantity, BigDecimal totalPrice,
+                              BigDecimal targetPrice, BigDecimal stopLossPrice, HoldingPeriod holdingPeriod,
                               EmotionType emotion, String reasonMemo, String stayMessage,
-                              Boolean isTracking, boolean isPublic) {
+                              Boolean isTracking, Boolean isPublic) {
+        if (tradeType != null) this.tradeType = tradeType;
+        if (tradeDateTime != null) this.tradeDateTime = tradeDateTime;
+        if (currency != null) this.currency = currency;
+        if (price != null) this.price = price;
+        if (quantity != null) this.quantity = quantity;
+        if (totalPrice != null) this.totalPrice = totalPrice;
         this.targetPrice = targetPrice;
         this.stopLossPrice = stopLossPrice;
-        this.emotion = emotion;
+        if (holdingPeriod != null) this.holdingPeriod = holdingPeriod;
+        this.emotion = emotion != null ? emotion : EmotionType.NONE;
         this.reasonMemo = reasonMemo;
         this.stayMessage = stayMessage;
         if (isTracking != null) {
             this.isTracking = isTracking;
         }
-        this.isPublic = isPublic;
+        if (isPublic != null) {
+            this.isPublic = isPublic;
+        }
     }
 
     public void incrementLikeCount() {
