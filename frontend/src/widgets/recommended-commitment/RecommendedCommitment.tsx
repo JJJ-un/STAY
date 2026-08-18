@@ -77,7 +77,7 @@ export function RecommendedCommitment({ onNavigate }: RecommendedCommitmentProps
         {MOCK_RECOMMENDATIONS.map((item) => (
           <div
             key={item.id}
-            onClick={handleCardClick}
+            onClick={() => handleCardClick(item.id)}
             className="flex-shrink-0 w-full snap-center bg-slate-50 hover:bg-slate-100/80 transition-colors rounded-2xl p-5 text-slate-900 flex flex-col justify-between cursor-pointer min-h-[168px]"
           >
             {/* 1. 상단: 종목명 & 매매유형 */}

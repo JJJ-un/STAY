@@ -1,5 +1,5 @@
 import type { JournalListItemData } from '../model/types'
-import type { TradeType } from '@/features/journal-create/model/types'
+import type { TradeType } from '@/features/journal-create'
 
 interface JournalCardProps {
   item: JournalListItemData

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Tabs, type TabItem } from '@/shared/ui'
 import CalculationIcon from '@/shared/assets/calculation.svg?react'
-import type { JournalFormState, StockOption, TradeType, CurrencyType } from '../model/types'
+import type { JournalFormState, StockOption, TradeType, CurrencyType } from '../types'
 import { StockSelectBottomSheet } from './StockSelectBottomSheet'
 
 const CURRENCY_TAB_ITEMS: TabItem<CurrencyType>[] = [

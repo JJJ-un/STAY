@@ -1,8 +1,4 @@
-interface MyPageProps {
-  onNavigate?: (path: string) => void
-}
-
-export function MyPage({ onNavigate }: MyPageProps) {
+export function MyPage() {
   return (
     <div className="flex-1 p-4 space-y-4">
       <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex items-center gap-3">

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Search, X, Check } from 'lucide-react'
 import { getStocks } from '@/entities/stock'
 import type { StockResponse } from '@/entities/stock'
-import type { StockOption } from '../model/types'
+import type { StockOption } from '../types'
 
 interface StockSelectBottomSheetProps {
   isOpen: boolean

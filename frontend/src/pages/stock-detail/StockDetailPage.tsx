@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { Edit3, ShieldAlert } from 'lucide-react'
 import { StockHeader } from '@/widgets/stock-header'
 import { StockChart } from '@/widgets/stock-chart'
 import { getStockDetail, type StockResponse } from '@/entities/stock'
 
-interface StockDetailPageProps {
-  ticker?: string
-  onNavigate?: (path: string) => void
-}
+export function StockDetailPage() {
+  const { ticker = 'NVDA' } = useParams<{ ticker: string }>()
+  const navigate = useNavigate()
 
-export function StockDetailPage({ ticker = 'NVDA', onNavigate }: StockDetailPageProps) {
   const [stock, setStock] = useState<StockResponse | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
 
@@ -28,7 +27,6 @@ export function StockDetailPage({ ticker = 'NVDA', onNavigate }: StockDetailPage
       .catch((err) => {
         console.error('Failed to load stock detail from API, fallback to mock:', err)
         if (isMounted) {
-          // 백엔드 미실행 시 안전한 기본 시세 세팅
           setStock({
             stockId: 1,
             name: ticker === 'NVDA' ? '엔비디아 (NVIDIA)' : ticker,
@@ -49,15 +47,13 @@ export function StockDetailPage({ ticker = 'NVDA', onNavigate }: StockDetailPage
   }, [ticker])
 
   const handleWriteJournal = () => {
-    if (onNavigate && stock) {
-      onNavigate(`/journal/write?stockId=${stock.stockId}&stockName=${encodeURIComponent(stock.name)}`)
+    if (stock) {
+      navigate(`/journal/write?stockId=${stock.stockId}&stockName=${encodeURIComponent(stock.name)}&stockCode=${stock.ticker}`)
     }
   }
 
   const handleJournalClick = (journalId: number) => {
-    if (onNavigate) {
-      onNavigate(`/journal/detail?id=${journalId}`)
-    }
+    navigate(`/journal/detail?id=${journalId}`)
   }
 
   return (

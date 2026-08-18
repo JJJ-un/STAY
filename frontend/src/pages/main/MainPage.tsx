@@ -14,11 +14,10 @@ const STOCK_TAB_ITEMS: TabItem<StockFilterType>[] = [
   { id: 'FALLING', label: '급하락' },
 ]
 
-interface MainPageProps {
-  onNavigate?: (path: string) => void
-}
+import { useNavigate } from 'react-router-dom'
 
-export function MainPage({ onNavigate }: MainPageProps) {
+export function MainPage() {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<MainTabType>('RECOMMEND')
   const [stockFilter, setStockFilter] = useState<StockFilterType>('RANK')
 
@@ -29,7 +28,7 @@ export function MainPage({ onNavigate }: MainPageProps) {
       <div className="flex-1 p-4 pb-6">
         {activeTab === 'RECOMMEND' ? (
           <div className="space-y-6">
-            <RecommendedCommitment onNavigate={onNavigate} />
+            <RecommendedCommitment onNavigate={navigate} />
 
             {/* 주식 종목 바로 위에 위치하는 기존 언더라인 공통 탭 필터 메뉴 */}
             <div className="space-y-3">
@@ -44,7 +43,7 @@ export function MainPage({ onNavigate }: MainPageProps) {
               <StockList
                 filter={stockFilter}
                 showRank={true}
-                onSelectStock={(ticker) => onNavigate?.(`/stock/${ticker}`)}
+                onSelectStock={(ticker) => navigate(`/stock/${ticker}`)}
               />
             </div>
           </div>

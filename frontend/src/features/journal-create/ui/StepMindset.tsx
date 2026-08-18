@@ -1,4 +1,4 @@
-import type { JournalFormState, EmotionType } from '../model/types'
+import type { JournalFormState, EmotionType } from '../types'
 import EmotionIcon from '@/shared/assets/emotion.svg?react'
 
 interface StepMindsetProps {
