@@ -16,20 +16,28 @@ export function JournalWritePage() {
   // 모던 플로팅 토스트 훅
   const { toastState, showToast } = useToast()
 
-  // 1. 단계(Step) 이동 및 뒤로가기 전담 훅 (React Router useNavigate 내장)
+  // 1. 단계(Step) 이동 및 뒤로가기 전담 훅
   const { currentStep, nextStep } = useStepNavigation({
     totalSteps: TOTAL_JOURNAL_STEPS,
   })
 
-  // 2. 폼 데이터(State) 및 유효성 검증 전담 훅 (URL SearchParams 자동 파싱)
-  const { formState, updateForm, getValidationError } = useJournalForm()
+  // 2. 폼 데이터(State) 및 유효성 검증 전담 훅 (URL editId 지원)
+  const {
+    formState,
+    updateForm,
+    getValidationError,
+    isEditMode,
+    editId,
+    isLoadingDetail,
+  } = useJournalForm()
 
-  // 3. 백엔드 API 제출 및 Mutation 전담 훅
-  const { mutate: createJournal, isSubmitting, isSuccess } = useCreateJournalMutation({
+  // 3. 백엔드 API 제출 및 Mutation 전담 훅 (수정 및 생성 분기 지원)
+  const { mutate: saveJournal, isSubmitting, isSuccess } = useCreateJournalMutation({
+    editId,
     onError: (msg) => showToast(msg, 'error'),
   })
 
-  // 다음 버튼 클릭 시 처리 (유효성 검증 실패 시 토스트 알림, 통과 시 1~2단계 nextStep / 마지막 단계 createJournal)
+  // 다음 버튼 클릭 시 처리 (유효성 검증 실패 시 토스트 알림, 통과 시 1~2단계 nextStep / 마지막 단계 saveJournal)
   const onNextClick = () => {
     const errorMsg = getValidationError(currentStep)
     if (errorMsg) {
@@ -40,13 +48,23 @@ export function JournalWritePage() {
     if (currentStep < TOTAL_JOURNAL_STEPS) {
       nextStep()
     } else {
-      createJournal(formState)
+      saveJournal(formState)
     }
   }
 
   // 저장 성공 시 축하 화면 렌더링
   if (isSuccess) {
     return <JournalSuccessView />
+  }
+
+  // 수정 모드 데이터 로딩 중
+  if (isLoadingDetail) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[50vh] space-y-3">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <p className="text-xs text-slate-500 font-medium">수정할 일지 정보를 불러오는 중...</p>
+      </div>
+    )
   }
 
   return (
@@ -85,7 +103,13 @@ export function JournalWritePage() {
           {isSubmitting ? (
             <Loader2 className="w-5 h-5 animate-spin text-white" />
           ) : (
-            <span>{currentStep === TOTAL_JOURNAL_STEPS ? '주식일지 저장하기' : '다음'}</span>
+            <span>
+              {currentStep === TOTAL_JOURNAL_STEPS
+                ? isEditMode
+                  ? '주식일지 수정 완료'
+                  : '주식일지 저장하기'
+                : '다음'}
+            </span>
           )}
         </button>
       </div>

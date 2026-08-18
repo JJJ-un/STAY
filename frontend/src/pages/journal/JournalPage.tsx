@@ -38,6 +38,7 @@ export function JournalPage() {
           filter={activeFilter}
           onCardClick={(id) => navigate(`/journal/detail?id=${id}`)}
           onWriteClick={() => navigate('/journal/write')}
+          onLoginClick={() => navigate('/login')}
         />
       </div>
     </div>

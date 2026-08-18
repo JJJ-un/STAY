@@ -1,19 +1,21 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { journalApi } from '@/entities/journal'
-import { toJournalCreateRequest } from '../lib/mapper'
+import { toJournalCreateRequest, toJournalUpdateRequest } from '../lib/mapper'
 import type { JournalFormState } from '../types'
 
-interface UseCreateJournalMutationProps {
+interface UseSaveJournalMutationProps {
+  editId?: string
   onError?: (errorMessage: string) => void
 }
 
 /**
- * 주식일지 생성 API 통신, 로딩/성공 상태, 딜레이 화면 전환 전담 Mutation 훅
+ * 주식일지 생성/수정 API 통신, 로딩/성공 상태, 딜레이 화면 전환 전담 Mutation 훅
  */
 export function useCreateJournalMutation({
+  editId,
   onError,
-}: UseCreateJournalMutationProps = {}) {
+}: UseSaveJournalMutationProps = {}) {
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -23,16 +25,28 @@ export function useCreateJournalMutation({
     setIsSubmitting(true)
 
     try {
-      const payload = toJournalCreateRequest(formState)
-      await journalApi.createJournal(payload)
-
-      setIsSuccess(true)
-      setTimeout(() => {
-        navigate('/journal')
-      }, 1500)
+      if (editId) {
+        // 수정 모드: PUT /api/v1/journals/{journalId}
+        const updatePayload = toJournalUpdateRequest(formState)
+        await journalApi.updateJournal(editId, updatePayload)
+        setIsSuccess(true)
+        setTimeout(() => {
+          navigate(`/journal/detail?id=${editId}`, { replace: true })
+        }, 1200)
+      } else {
+        // 신규 작성 모드: POST /api/v1/journals
+        const createPayload = toJournalCreateRequest(formState)
+        await journalApi.createJournal(createPayload)
+        setIsSuccess(true)
+        setTimeout(() => {
+          navigate('/journal')
+        }, 1500)
+      }
     } catch (error) {
-      console.error('일지 저장 실패:', error)
-      const errorMsg = '일지 저장에 실패했습니다. 다시 시도해 주세요.'
+      console.error('일지 저장/수정 실패:', error)
+      const errorMsg = editId
+        ? '일지 수정에 실패했습니다. 다시 시도해 주세요.'
+        : '일지 저장에 실패했습니다. 다시 시도해 주세요.'
       onError?.(errorMsg)
     } finally {
       setIsSubmitting(false)
