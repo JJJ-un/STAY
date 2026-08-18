@@ -66,3 +66,12 @@ body {
   background-color: rgba(100, 116, 139, 0.1);
   color: var(--trend-zero);
 }
+
+/* 스크롤바 완전 숨김 유틸리티 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

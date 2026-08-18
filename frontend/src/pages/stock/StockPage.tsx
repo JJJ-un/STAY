@@ -35,7 +35,7 @@ export function StockPage({ onNavigate }: StockPageProps) {
         <StockList
           filter={activeFilter}
           showRank={false}
-          onSelectStock={(stockId) => onNavigate?.(`/stock/${stockId}`)}
+          onSelectStock={(ticker) => onNavigate?.(`/stock/${ticker}`)}
         />
       </div>
     </div>
