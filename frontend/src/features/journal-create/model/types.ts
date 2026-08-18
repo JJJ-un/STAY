@@ -1,4 +1,4 @@
-export type TradeType = 'BUY' | 'SELL' | 'REBALANCE'
+export type TradeType = 'BUY' | 'SELL' | 'WATCH'
 export type CurrencyType = 'KRW' | 'USD'
 export type HoldingPeriodType = 'SHORT' | 'MEDIUM' | 'LONG'
 export type EmotionType = 'FOMO' | 'PANIC' | 'CONFIDENCE' | 'GREED' | 'NONE'

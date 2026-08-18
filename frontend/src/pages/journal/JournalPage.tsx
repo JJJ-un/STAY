@@ -9,7 +9,7 @@ const JOURNAL_TAB_ITEMS: TabItem<JournalFilterType>[] = [
   { id: 'ALL', label: '전체' },
   { id: 'BUY', label: '매수' },
   { id: 'SELL', label: '매도' },
-  { id: 'REBALANCE', label: '리밸런싱' },
+  { id: 'WATCH', label: '관망' },
 ]
 
 interface JournalPageProps {

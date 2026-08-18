@@ -80,17 +80,17 @@ export function StepBasicData({ form, onChange }: StepBasicDataProps) {
       <div className="space-y-2">
         <label className="text-sm font-bold text-slate-700 block">매매 유형</label>
         <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1.5 rounded-2xl">
-          {(['BUY', 'SELL', 'REBALANCE'] as TradeType[]).map((type) => {
+          {(['BUY', 'SELL', 'WATCH'] as TradeType[]).map((type) => {
             const isSelected = form.tradeType === type
             const labelMap: Record<TradeType, string> = {
               BUY: '매수',
               SELL: '매도',
-              REBALANCE: '리밸런싱',
+              WATCH: '관망',
             }
             const colorMap: Record<TradeType, string> = {
               BUY: 'bg-red-500 text-white shadow-sm',
               SELL: 'bg-blue-600 text-white shadow-sm',
-              REBALANCE: 'bg-slate-900 text-white shadow-sm',
+              WATCH: 'bg-slate-800 text-white shadow-sm',
             }
 
             return (

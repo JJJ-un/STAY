@@ -1,6 +1,7 @@
 import { CheckSquare, Calculator, ShieldAlert, Target } from 'lucide-react'
 import type { JournalListItemData } from '@/features/journal-list'
 import { MOCK_JOURNAL_LIST } from '@/features/journal-list'
+import type { TradeType } from '@/entities/journal'
 
 interface JournalDetailPageProps {
   journalId?: string
@@ -30,10 +31,10 @@ export function JournalDetailPage({ journalId = 'j1', onNavigate }: JournalDetai
       ? (((stopLossNum - parsedPrice) / parsedPrice) * 100).toFixed(1)
       : null
 
-  const tradeTypeColorMap = {
+  const tradeTypeColorMap: Record<TradeType, { bg: string; text: string; label: string }> = {
     BUY: { bg: 'bg-red-50', text: 'text-red-600', label: '매수' },
     SELL: { bg: 'bg-blue-50', text: 'text-blue-600', label: '매도' },
-    REBALANCE: { bg: 'bg-slate-200/80', text: 'text-slate-800', label: '리밸런싱' },
+    WATCH: { bg: 'bg-slate-200/80', text: 'text-slate-800', label: '관망' },
   }
 
   const tradeTypeInfo = tradeTypeColorMap[journal.tradeType]
