@@ -140,8 +140,15 @@ public class JournalService {
         validateJournalAuthor(journal, currentUserId);
 
         journal.updateJournal(
+                request.tradeType(),
+                request.tradeDateTime(),
+                request.currency(),
+                request.price(),
+                request.quantity(),
+                request.totalPrice(),
                 request.targetPrice(),
                 request.stopLossPrice(),
+                request.holdingPeriod(),
                 request.emotion(),
                 request.reasonMemo(),
                 request.stayMessage(),

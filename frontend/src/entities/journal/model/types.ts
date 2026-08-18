@@ -16,9 +16,15 @@ export interface ChecklistRequest {
   isChecked: boolean
 }
 
+// 원칙 체크리스트 항목 응답 DTO
+export interface ChecklistResponse {
+  checklistId: number
+  content: string
+  isChecked: boolean
+}
+
 // 주식일지 작성 요청 DTO (POST /api/v1/journals)
 export interface JournalCreateRequest {
-  // 1단계: 매매 사실 (Fact)
   stockId: number
   tradeType: TradeType
   tradeDateTime: string // ISO 포맷: YYYY-MM-DDTHH:mm:ss
@@ -26,25 +32,36 @@ export interface JournalCreateRequest {
   price?: number
   quantity?: number
   totalPrice?: number
-
-  // 2단계: 매매 원칙 (Rule)
   targetPrice?: number
   stopLossPrice?: number
   holdingPeriod?: HoldingPeriod
   checklists?: ChecklistRequest[]
-
-  // 3단계: 심리 & STAY 다짐 (Mindset)
   emotion?: EmotionType
   reasonMemo?: string
-  stayMessage: string // 필수
-
-  // 4단계: 주가 흐름 패턴 스냅샷 (선택)
+  stayMessage: string
   chartRangeType?: string
   pricePattern?: number[]
   isTracking?: boolean
 }
 
-// 주식일지 목록 응답 DTO
+// 주식일지 수정 요청 DTO (PUT /api/v1/journals/{journalId})
+export interface JournalUpdateRequest {
+  tradeType: TradeType
+  tradeDateTime: string
+  currency: CurrencyType
+  price: number
+  quantity: number
+  totalPrice: number
+  targetPrice?: number
+  stopLossPrice?: number
+  holdingPeriod?: HoldingPeriod
+  emotion?: EmotionType
+  reasonMemo?: string
+  stayMessage: string
+  isPublic?: boolean
+}
+
+// 주식일지 목록 응답 DTO (GET /api/v1/journals)
 export interface JournalResponse {
   journalId: number
   stockId: number
@@ -61,6 +78,37 @@ export interface JournalResponse {
   stopLossPrice?: number
   holdingPeriod?: HoldingPeriod
   isTracking?: boolean
+}
+
+// 주식일지 단건 상세 응답 DTO (GET /api/v1/journals/{journalId})
+export interface JournalDetailResponse {
+  journalId: number
+  author?: {
+    userId: number
+    nickname: string
+    profileImageUrl?: string
+  }
+  stock?: {
+    stockId: number
+    name: string
+    ticker: string
+    currentPrice?: number
+  }
+  tradeType: TradeType
+  tradeDateTime: string
+  currency: CurrencyType
+  price?: number
+  quantity?: number
+  totalPrice?: number
+  targetPrice?: number
+  stopLossPrice?: number
+  holdingPeriod?: HoldingPeriod
+  emotion?: EmotionType
+  reasonMemo?: string
+  stayMessage: string
+  checklists?: ChecklistResponse[]
+  createdAt?: string
+  updatedAt?: string
 }
 
 // 기존 피드 및 추천 컴포넌트 호환용 인터페이스

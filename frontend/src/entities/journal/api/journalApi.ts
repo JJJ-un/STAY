@@ -1,7 +1,9 @@
 import { apiClient } from '@/shared/api'
 import type {
   JournalCreateRequest,
+  JournalUpdateRequest,
   JournalResponse,
+  JournalDetailResponse,
   TradeType,
 } from '../model/types'
 
@@ -28,6 +30,16 @@ export const journalApi = {
   },
 
   /**
+   * 주식일지 수정
+   * PUT /api/v1/journals/{journalId}
+   * @param journalId 수정할 일지 ID
+   * @param request 수정할 일지 데이터 DTO
+   */
+  async updateJournal(journalId: number | string, request: JournalUpdateRequest): Promise<void> {
+    await apiClient.put(`/journals/${journalId}`, request)
+  },
+
+  /**
    * 내 주식일지 목록 조회 (최신순)
    * GET /api/v1/journals
    * @param tradeType 매매 유형별 필터 (BUY, SELL, WATCH)
@@ -40,10 +52,20 @@ export const journalApi = {
   },
 
   /**
+   * 주식일지 단건 상세 조회
+   * GET /api/v1/journals/{journalId}
+   * @param journalId 조회할 주식일지 ID
+   */
+  async getJournalDetail(journalId: number | string): Promise<JournalDetailResponse> {
+    const response = await apiClient.get<ApiResponse<JournalDetailResponse>>(`/journals/${journalId}`)
+    return response.data.data
+  },
+
+  /**
    * 특정 주식일지 삭제 (Soft Delete)
    * DELETE /api/v1/journals/{journalId}
    */
-  async deleteJournal(journalId: number): Promise<void> {
+  async deleteJournal(journalId: number | string): Promise<void> {
     await apiClient.delete(`/journals/${journalId}`)
   },
 }

@@ -1,4 +1,5 @@
 export * from './model/types'
-export * from './model/mock'
+export * from './lib/mapper'
+export * from './api/useJournalListQuery'
 export * from './ui/JournalCard'
 export * from './ui/JournalList'
