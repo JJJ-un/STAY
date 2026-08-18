@@ -81,9 +81,6 @@ export function RootLayout() {
     }
   }
 
-  // 로그인 화면 등 특정 화면에서는 BottomNav 숨김
-  const hideBottomNav = pathname === '/login' || pathname === '/oauth/callback'
-
   return (
     <div className="min-h-screen bg-slate-100 flex justify-center">
       <div className="w-full max-w-[430px] min-h-screen bg-white text-slate-900 flex flex-col relative">
@@ -96,7 +93,7 @@ export function RootLayout() {
         </main>
 
         {/* 최하단 고정 내비게이션 바 */}
-        {!hideBottomNav && <BottomNav />}
+        <BottomNav />
       </div>
     </div>
   )
