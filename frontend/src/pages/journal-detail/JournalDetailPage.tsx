@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { CheckSquare, ShieldAlert, Target, Loader2, Edit3, Trash2 } from 'lucide-react'
-import { journalApi, type JournalDetailResponse, type EmotionType, type TradeType } from '@/entities/journal'
+import { useQueryClient } from '@tanstack/react-query'
+import { journalApi, useJournalDetailQuery, type EmotionType, type TradeType, type ChecklistResponse } from '@/entities/journal'
 import { Toast, useToast } from '@/shared/ui'
 
 // 감정 라벨 매핑
@@ -22,45 +23,14 @@ const TRADE_TYPE_COLOR_MAP: Record<TradeType, { bg: string; text: string; label:
 export function JournalDetailPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const journalId = searchParams.get('id')
   const { toastState, showToast } = useToast()
 
-  const [journal, setJournal] = useState<JournalDetailResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!journalId) {
-      setError('유효하지 않은 주식일지 ID입니다.')
-      setIsLoading(false)
-      return
-    }
-
-    let isMounted = true
-    setIsLoading(true)
-    setError(null)
-
-    journalApi
-      .getJournalDetail(journalId)
-      .then((data) => {
-        if (isMounted) {
-          setJournal(data)
-          setIsLoading(false)
-        }
-      })
-      .catch((err) => {
-        console.error('일지 상세 조회 실패:', err)
-        if (isMounted) {
-          setError('주식일지 상세 정보를 불러오지 못했습니다.')
-          setIsLoading(false)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [journalId])
+  // TanStack Query 기반 일지 상세 캐싱 훅
+  const { data: journal, isLoading, isError } = useJournalDetailQuery(journalId || undefined)
 
   // 수정 페이지로 이동
   const handleEdit = () => {
@@ -77,6 +47,8 @@ export function JournalDetailPage() {
     setIsDeleting(true)
     try {
       await journalApi.deleteJournal(journalId)
+      // 일지 목록 및 상세 캐시 무효화
+      queryClient.invalidateQueries({ queryKey: ['journals'] })
       showToast('주식일지가 삭제되었습니다.', 'info')
       setTimeout(() => {
         navigate('/journal', { replace: true })
@@ -99,10 +71,10 @@ export function JournalDetailPage() {
   }
 
   // 에러 상태
-  if (error || !journal) {
+  if (isError || !journal) {
     return (
       <div className="flex-1 p-6 flex flex-col items-center justify-center text-center space-y-4 min-h-[50vh]">
-        <p className="text-sm font-bold text-slate-800">{error || '일지를 찾을 수 없습니다.'}</p>
+        <p className="text-sm font-bold text-slate-800">일지를 찾을 수 없습니다.</p>
         <button
           type="button"
           onClick={() => navigate('/journal')}
@@ -116,7 +88,7 @@ export function JournalDetailPage() {
 
   const stockName = journal.stock?.name || '종목명'
   const stockTicker = journal.stock?.ticker || ''
-  const tradeType = journal.tradeType || 'BUY'
+  const tradeType = (journal.tradeType || 'BUY') as TradeType
   const tradeTypeInfo = TRADE_TYPE_COLOR_MAP[tradeType] || TRADE_TYPE_COLOR_MAP.BUY
 
   const price = journal.price || 0
@@ -127,7 +99,7 @@ export function JournalDetailPage() {
   const targetPrice = journal.targetPrice || 0
   const stopLossPrice = journal.stopLossPrice || 0
 
-  const emotion = journal.emotion || 'CONFIDENCE'
+  const emotion = (journal.emotion || 'CONFIDENCE') as EmotionType
   const emotionLabel = EMOTION_LABEL_MAP[emotion] || '자신감'
 
   // 날짜 포맷
@@ -210,7 +182,7 @@ export function JournalDetailPage() {
             <h3 className="text-xs font-black text-slate-900">매수 전 원칙 체크리스트</h3>
           </div>
           <div className="space-y-2">
-            {journal.checklists.map((c) => (
+            {journal.checklists.map((c: ChecklistResponse) => (
               <div
                 key={c.checklistId}
                 className="bg-white p-3.5 rounded-2xl flex items-center gap-2.5 text-xs"

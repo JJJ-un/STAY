@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { createChart, type IChartApi, type ISeriesApi, type IPriceLine, AreaSeries, type Time, LineStyle } from 'lightweight-charts'
-import { getStockChart, type ChartRangeType } from '@/entities/stock'
+import type { ChartRangeType } from '@/entities/stock'
 import { useStockPriceSSE } from '@/shared/lib/useStockPriceSSE'
+import { useStockChartQuery } from '../model/useStockChartQuery'
 import { MOCK_CHART_SERIES, toChartTime } from '../model/mock'
 import { formatChartTimeToString } from '../lib/chartTimeFormatter'
 
@@ -22,7 +23,9 @@ export function StockChartCanvas({
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Area'> | null>(null)
   const priceLineRef = useRef<IPriceLine | null>(null)
-  const [isLoading, setIsLoading] = useState<boolean>(false)
+
+  // 1. TanStack Query를 통한 차트 데이터 캐싱 계층화 (staleTime: Infinity로 탭 재전환 시 0ms 즉시 노출)
+  const { data: chartItems, isLoading: isFirstLoading, isFetching } = useStockChartQuery(ticker, range)
 
   // 부모 리렌더링 시 차트 인스턴스가 파괴되는 것을 방지하기 위한 Ref 패턴
   const onPointClickRef = useRef(onPointClick)
@@ -33,7 +36,7 @@ export function StockChartCanvas({
   // 한투 실시간 체결 SSE 수신
   const { realtimePrices } = useStockPriceSSE()
 
-  // 1. 차트 인스턴스 생성 및 캔버스 초기화 (오직 최초 1회만 생성하여 깜빡임 방지)
+  // 2. 차트 인스턴스 생성 및 캔버스 초기화 (오직 최초 1회만 생성하여 깜빡임 방지)
   useEffect(() => {
     if (!chartContainerRef.current) return
 
@@ -114,7 +117,7 @@ export function StockChartCanvas({
     }
   }, [])
 
-  // 2. 탭 전환 또는 ticker 변경 시 실제 API 데이터 페칭 및 캔버스 갱신
+  // 3. 탭 전환 또는 쿼리 데이터 갱신 시 캔버스에 즉시 데이터 주입
   useEffect(() => {
     if (!seriesRef.current || !chartRef.current) return
 
@@ -126,41 +129,20 @@ export function StockChartCanvas({
       },
     })
 
-    let isMounted = true
-    setIsLoading(true)
-
-    getStockChart(ticker, range)
-      .then((items) => {
-        if (!isMounted || !seriesRef.current || !chartRef.current) return
-
-        if (items && items.length > 0) {
-          const chartData = items.map((item) => ({
-            time: toChartTime(item.dateTime, isMinute),
-            value: item.price,
-          }))
-          seriesRef.current.setData(chartData)
-        } else {
-          // 데이터가 없을 경우 Mock 폴백
-          seriesRef.current.setData(MOCK_CHART_SERIES[range] as { time: Time; value: number }[])
-        }
-        chartRef.current.timeScale().fitContent()
-      })
-      .catch(() => {
-        if (!isMounted || !seriesRef.current || !chartRef.current) return
-        // API 에러 시에도 안전하게 Mock 폴백
-        seriesRef.current.setData(MOCK_CHART_SERIES[range] as { time: Time; value: number }[])
-        chartRef.current.timeScale().fitContent()
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false)
-      })
-
-    return () => {
-      isMounted = false
+    if (chartItems && chartItems.length > 0) {
+      const chartData = chartItems.map((item) => ({
+        time: toChartTime(item.dateTime, isMinute),
+        value: item.price,
+      }))
+      seriesRef.current.setData(chartData)
+    } else {
+      // 데이터가 없거나 첫 로딩 중일 경우 Mock 폴백
+      seriesRef.current.setData(MOCK_CHART_SERIES[range] as { time: Time; value: number }[])
     }
-  }, [ticker, range])
+    chartRef.current.timeScale().fitContent()
+  }, [chartItems, range])
 
-  // 3. 차트에서 특정 날짜 클릭 시 시각적 프라이스 라인(Price Line) 고정!
+  // 4. 차트에서 특정 날짜 클릭 시 시각적 프라이스 라인(Price Line) 고정!
   useEffect(() => {
     if (!seriesRef.current) return
 
@@ -188,7 +170,7 @@ export function StockChartCanvas({
     }
   }, [selectedPoint])
 
-  // 4. SSE로 실시간 주가 수신 시 차트 맨 오른쪽 끝 점 실시간 꿀렁임 (DAY_1 당일 차트 모드일 때)
+  // 5. SSE 실시간 주가 수신 시 당일 차트(DAY_1)일 때만 Ref 기반 직접 캔버스 갱신 (컴포넌트 리렌더링 0회)
   useEffect(() => {
     if (!seriesRef.current || range !== 'DAY_1') return
 
@@ -211,7 +193,7 @@ export function StockChartCanvas({
     <div className="relative pt-1 w-full overflow-hidden">
       <div
         ref={chartContainerRef}
-        className={`w-full transition-opacity duration-300 ${isLoading ? 'opacity-50' : 'opacity-100'}`}
+        className={`w-full transition-opacity duration-200 ${isFirstLoading && isFetching ? 'opacity-50' : 'opacity-100'}`}
       />
     </div>
   )

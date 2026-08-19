@@ -1,43 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Edit3, Calendar, X, ShieldAlert } from 'lucide-react'
 import { StockHeader } from '@/widgets/stock-header'
 import { StockChart } from '@/widgets/stock-chart'
-import { getStockDetail, type StockResponse } from '@/entities/stock'
+import { useStockDetailQuery } from '@/entities/stock'
 
 export function StockDetailPage() {
   const { ticker = '' } = useParams<{ ticker: string }>()
   const navigate = useNavigate()
 
-  const [stock, setStock] = useState<StockResponse | null>(null)
-  const [isLoading, setIsLoading] = useState<boolean>(true)
+  // TanStack Query를 통한 종목 상세 캐싱 (뒤로가기 후 재진입 시 0ms 즉시 노출)
+  const { data: stock, isLoading } = useStockDetailQuery(ticker)
+
   // 차트에서 클릭하여 선택된 특정 일자 및 당시 종가 상태
   const [selectedPoint, setSelectedPoint] = useState<{ date: string; price: number } | null>(null)
-
-  // 실제 백엔드 종목 상세 API 연동 (100% 티커 단일 체계)
-  useEffect(() => {
-    if (!ticker) return
-    let isMounted = true
-    setIsLoading(true)
-
-    getStockDetail(ticker)
-      .then((data) => {
-        if (isMounted) {
-          setStock(data)
-          setIsLoading(false)
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load stock detail from API:', err)
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [ticker])
 
   const handleWriteJournal = () => {
     if (!stock) return
@@ -60,7 +36,7 @@ export function StockDetailPage() {
   return (
     <div className="flex-1 p-4 space-y-5 bg-white">
       {/* 1. 종목명 & 실시간 현재가 & 등락률 뱃지 */}
-      <StockHeader stock={stock} isLoading={isLoading} />
+      <StockHeader stock={stock || null} isLoading={isLoading} />
 
       {/* 2. 전문 금융 차트 & 타임라인 마커 위젯 */}
       <StockChart
@@ -78,9 +54,9 @@ export function StockDetailPage() {
 
       {/* 3. 이 종목 나만의 매매 원칙 */}
       <div className="bg-slate-50/80 p-4 rounded-3xl space-y-3">
-        <div className="flex items-center gap-1.5 text-blue-600">
-          <ShieldAlert className="w-4 h-4" />
-          <h2 className="text-xs font-black text-slate-900">
+        <div className="flex items-center gap-2 text-slate-800">
+          <ShieldAlert className="w-4 h-4 text-blue-600" />
+          <h2 className="text-sm font-bold tracking-tight">
             {stock?.name || ticker} 나만의 원칙 체크
           </h2>
         </div>
@@ -96,7 +72,8 @@ export function StockDetailPage() {
         <button
           type="button"
           onClick={handleWriteJournal}
-          className={`flex-1 py-4 px-4 active:scale-[0.99] text-white font-black text-sm rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+          disabled={!stock}
+          className={`flex-1 py-4 px-4 active:scale-[0.99] text-white font-black text-sm rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed ${
             selectedPoint
               ? 'bg-blue-600 hover:bg-blue-700'
               : 'bg-slate-900 hover:bg-slate-800'
