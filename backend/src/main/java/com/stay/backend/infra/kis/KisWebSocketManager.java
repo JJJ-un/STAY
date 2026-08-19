@@ -26,6 +26,7 @@ public class KisWebSocketManager {
 
     private final KisAuthManager kisAuthManager;
     private final KisWebSocketHandler kisWebSocketHandler;
+    private final KisStockService kisStockService;
     private final StockRepository stockRepository;
 
     @Value("${koreainvest.api.websocket-url:ws://ops.koreainvestment.com:21000}")
@@ -35,11 +36,48 @@ public class KisWebSocketManager {
     private boolean isConnecting = false;
 
     /**
-     * 1. 스프링 서버 기동 완료 시 비동기로 한투 웹소켓 연결 시작
+     * 1. 스프링 서버 기동 완료 시 비동기로 한투 실제 시세 1회 동기화 및 웹소켓 연결 시작
      */
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
-        CompletableFuture.runAsync(this::connectAndSubscribe);
+        CompletableFuture.runAsync(() -> {
+            // (1) 한투 REST API로 DB 종목들의 최신 실제 종가 1회 동기화
+            syncInitialStockPrices();
+            // (2) 실시간 웹소켓 연결 및 구독
+            connectAndSubscribe();
+        });
+    }
+
+    /**
+     * DB 등록 종목들의 최신 실제 시세를 한국투자증권 Open API로부터 1회 동기화
+     */
+    public void syncInitialStockPrices() {
+        List<Stock> stocks = stockRepository.findAll();
+        if (stocks.isEmpty()) {
+            return;
+        }
+
+        log.info("한투 실제 시세 초기 동기화 시작 (총 {}개 종목)", stocks.size());
+        for (Stock stock : stocks) {
+            try {
+                com.stay.backend.infra.kis.dto.RealtimeStockPrice realtime = kisStockService.getRealtimePrice(stock.getTicker());
+                if (realtime != null && realtime.currentPrice() != null) {
+                    stock.updatePriceAndVolume(
+                            realtime.currentPrice(),
+                            realtime.changePrice(),
+                            realtime.changeRate(),
+                            realtime.volume()
+                    );
+                    stockRepository.save(stock);
+                    log.info("종목 [{}] 한투 실제 시세 동기화 완료: 현재가=${}, 등락률={}%",
+                            stock.getTicker(), realtime.currentPrice(), realtime.changeRate());
+                }
+                // 한투 초당 제한(Rate Limit) 방어를 위한 0.3초 미세 분산 딜레이
+                Thread.sleep(300);
+            } catch (Exception e) {
+                log.warn("종목 [{}] 한투 초기 시세 동기화 실패: {}", stock.getTicker(), e.getMessage());
+            }
+        }
     }
 
     /**

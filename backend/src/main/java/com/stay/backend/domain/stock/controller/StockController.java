@@ -3,6 +3,7 @@ package com.stay.backend.domain.stock.controller;
 import com.stay.backend.domain.stock.dto.StockResponse;
 import com.stay.backend.domain.stock.entity.StockSortType;
 import com.stay.backend.domain.stock.service.StockService;
+import com.stay.backend.domain.stock.service.StockSseService;
 import com.stay.backend.global.common.response.ApiResponse;
 import com.stay.backend.infra.kis.KisStockService;
 import com.stay.backend.infra.kis.dto.RealtimeStockPrice;
@@ -10,12 +11,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 
@@ -27,6 +30,13 @@ public class StockController {
 
     private final StockService stockService;
     private final KisStockService kisStockService;
+    private final StockSseService stockSseService;
+
+    @Operation(summary = "실시간 주가 SSE 스트림 구독", description = "한국투자증권 실시간 체결가 변동을 Server-Sent Events로 실시간 수신합니다.")
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter subscribeStockStream() {
+        return stockSseService.subscribe();
+    }
 
     @Operation(summary = "메인 화면 해외 반도체 종목 목록 조회", description = "메인 화면에 표시할 해외 반도체 종목 목록을 조회합니다. 탭 정렬(거래량순, 상승률순, 하락률순, 시총순) 및 종목명/티커 검색을 지원합니다.")
     @GetMapping
