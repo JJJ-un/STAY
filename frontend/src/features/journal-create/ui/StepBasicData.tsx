@@ -65,9 +65,9 @@ export function StepBasicData({ form, onChange }: StepBasicDataProps) {
         </button>
       </div>
 
-      {/* 2. 매매 일자 및 시간 선택 */}
-      <div className="space-y-2">
-        <label className="text-sm font-bold text-slate-700 block">매매 일자 및 시간</label>
+      {/* 2. 기록 시간 선택 */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-bold text-slate-700 block">기록 시간</label>
         <input
           type="datetime-local"
           value={form.tradeDateTime}

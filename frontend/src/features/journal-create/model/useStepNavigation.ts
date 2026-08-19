@@ -15,13 +15,13 @@ export function useStepNavigation({
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1)
 
-  // 이전 스텝 이동 (1단계일 때는 /journal로 이동)
+  // 이전 스텝 이동 (1단계일 때는 직전 페이지로 복귀)
   const prevStep = () => {
     if (currentStep > 1) {
       setCurrentStep((prev) => (prev - 1) as 1 | 2 | 3)
       window.scrollTo({ top: 0, behavior: 'instant' })
     } else {
-      navigate('/journal')
+      navigate(-1)
     }
   }
 
