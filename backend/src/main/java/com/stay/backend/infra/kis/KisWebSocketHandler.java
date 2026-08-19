@@ -69,7 +69,7 @@ public class KisWebSocketHandler extends TextWebSocketHandler {
             // fields[11]: LAST (현재 체결가)
             // fields[13]: DIFF (전일 대비 변동금액)
             // fields[14]: RATE (전일 대비 등락률 %)
-            // fields[15]: TVOL (당일 누적 거래량)
+            // fields[20]: TVOL (당일 누적 거래량)
 
             String rawSymbol = fields[0]; // e.g. DNASNVDA
             String ticker = extractTicker(rawSymbol);
@@ -77,7 +77,7 @@ public class KisWebSocketHandler extends TextWebSocketHandler {
             BigDecimal currentPrice = new BigDecimal(fields[11].trim());
             BigDecimal changePrice = new BigDecimal(fields[13].trim());
             BigDecimal changeRate = new BigDecimal(fields[14].trim());
-            Long volume = Long.parseLong(fields[15].trim());
+            Long volume = Long.parseLong(fields[20].trim());
 
             // 정제된 DTO 구성
             StockResponse stockResponse = new StockResponse(

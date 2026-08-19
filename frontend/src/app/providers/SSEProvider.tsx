@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import type { StockResponse } from '@/entities/stock'
 
 export interface RealtimeStockPriceItem {
   ticker: string
@@ -27,8 +29,10 @@ interface SSEProviderProps {
 /**
  * 앱 전체에서 단 1개의 SSE(Server-Sent Events) 커넥션만 유지하는 싱글톤 프로바이더
  * 어떤 컴포넌트에서 useStockPriceSSE()를 몇 번 호출하든 서버 HTTP 연결은 오직 1개로 고정됩니다.
+ * 실시간 시세 수신 시 TanStack Query 캐시(['stocks', ticker, 'detail'])의 현재가도 함께 동기화합니다.
  */
 export function SSEProvider({ children }: SSEProviderProps) {
+  const queryClient = useQueryClient()
   const [realtimePrices, setRealtimePrices] = useState<Record<string, RealtimeStockPriceItem>>({})
   const [lastUpdatedTicker, setLastUpdatedTicker] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState<boolean>(false)
@@ -58,13 +62,28 @@ export function SSEProvider({ children }: SSEProviderProps) {
             const next = { ...prev }
             stocks.forEach((s) => {
               if (s && s.ticker) {
-                next[s.ticker.toUpperCase()] = {
-                  ticker: s.ticker.toUpperCase(),
+                const tickerUpper = s.ticker.toUpperCase()
+                next[tickerUpper] = {
+                  ticker: tickerUpper,
                   currentPrice: s.currentPrice,
                   changePrice: s.changePrice,
                   changeRate: s.changeRate,
                   volume: s.volume,
                 }
+
+                // TanStack Query 상세 캐시도 함께 동기화
+                queryClient.setQueryData<StockResponse>(
+                  ['stocks', tickerUpper, 'detail'],
+                  (oldStock) => {
+                    if (!oldStock) return oldStock
+                    return {
+                      ...oldStock,
+                      currentPrice: s.currentPrice,
+                      changePrice: s.changePrice,
+                      changeRate: s.changeRate,
+                    }
+                  }
+                )
               }
             })
             return next
@@ -99,6 +118,20 @@ export function SSEProvider({ children }: SSEProviderProps) {
             },
           }))
 
+          // TanStack Query 상세 캐시 동기화
+          queryClient.setQueryData<StockResponse>(
+            ['stocks', tickerUpper, 'detail'],
+            (oldStock) => {
+              if (!oldStock) return oldStock
+              return {
+                ...oldStock,
+                currentPrice: stock.currentPrice,
+                changePrice: stock.changePrice,
+                changeRate: stock.changeRate,
+              }
+            }
+          )
+
           // 방금 가격이 갱신된 종목 티커 기록
           setLastUpdatedTicker(tickerUpper)
         }
@@ -114,7 +147,7 @@ export function SSEProvider({ children }: SSEProviderProps) {
     return () => {
       eventSource.close()
     }
-  }, [])
+  }, [queryClient])
 
   return (
     <SSEContext.Provider value={{ realtimePrices, lastUpdatedTicker, isConnected }}>
