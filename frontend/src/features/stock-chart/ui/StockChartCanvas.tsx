@@ -3,6 +3,7 @@ import { createChart, type IChartApi, type ISeriesApi, type IPriceLine, AreaSeri
 import { getStockChart, type ChartRangeType } from '@/entities/stock'
 import { useStockPriceSSE } from '@/shared/lib/useStockPriceSSE'
 import { MOCK_CHART_SERIES, toChartTime } from '../model/mock'
+import { formatChartTimeToString } from '../lib/chartTimeFormatter'
 
 interface StockChartCanvasProps {
   ticker: string
@@ -86,7 +87,7 @@ export function StockChartCanvas({
       try {
         const seriesData = param.seriesData.get(seriesRef.current) as { value?: number }
         const price = seriesData?.value || 0
-        const dateStr = String(param.time)
+        const dateStr = formatChartTimeToString(param.time)
 
         if (price > 0 && onPointClickRef.current) {
           onPointClickRef.current(dateStr, price)

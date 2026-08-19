@@ -12,7 +12,7 @@ interface StockChartProps {
   ticker: string
   selectedPoint?: { date: string; price: number } | null
   onJournalClick?: (journalId: number) => void
-  onSelectPoint?: (date: string, price: number) => void
+  onSelectPoint?: (date: string | null, price?: number) => void
 }
 
 export function StockChart({
@@ -33,6 +33,8 @@ export function StockChart({
 
   const handleRangeChange = (newRange: ChartRangeType) => {
     setRange(newRange)
+    // 탭 전환 시 기존 핀 마커 및 선택 상태를 깔끔하게 자동 초기화!
+    onSelectPoint?.(null)
     const nextVisible = ALL_MOCK_TIMELINE_MARKERS.filter((m) => m.rangeTags.includes(newRange))
     setSelectedMarker(nextVisible.length > 0 ? nextVisible[0] : null)
   }
@@ -54,7 +56,7 @@ export function StockChart({
           ticker={ticker}
           range={range}
           selectedPoint={selectedPoint}
-          onPointClick={onSelectPoint}
+          onPointClick={(date, price) => onSelectPoint?.(date, price)}
         />
 
         {/* 📍 [Feature 2] 차트 하단 타임라인 마커 뱃지 레일 */}

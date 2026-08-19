@@ -66,7 +66,13 @@ export function StockDetailPage() {
       <StockChart
         ticker={ticker}
         selectedPoint={selectedPoint}
-        onSelectPoint={(date, price) => setSelectedPoint({ date, price })}
+        onSelectPoint={(date, price) => {
+          if (!date) {
+            setSelectedPoint(null)
+          } else {
+            setSelectedPoint({ date, price: price || 0 })
+          }
+        }}
         onJournalClick={handleJournalClick}
       />
 

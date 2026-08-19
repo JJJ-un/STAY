@@ -88,6 +88,19 @@ public class StockChartService {
         List<StockChartResponse> result = new ArrayList<>(chartList);
         Collections.reverse(result);
 
+        // 3. 기간 탭별 적정 캔들 개수로 정밀 슬라이싱 (X축 범위 보정)
+        int limitCount = switch (targetRange) {
+            case WEEK_1 -> 7;    // 1주: 최근 5~7영업일
+            case MONTH_3 -> 60;  // 3개월: 최근 60영업일
+            case YEAR_1 -> 52;   // 1년: 최근 52주봉
+            case YEAR_5 -> 60;   // 5년: 최근 60월봉
+            case DAY_1 -> result.size(); // 1일: 당일 5분봉 전체
+        };
+
+        if (result.size() > limitCount) {
+            result = result.subList(result.size() - limitCount, result.size());
+        }
+
         log.info("차트 데이터 가공 완료: ticker={}, range={}, 총 캔들 수={}", normalizedTicker, targetRange, result.size());
 
         return result;
