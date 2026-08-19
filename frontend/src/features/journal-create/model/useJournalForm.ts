@@ -15,6 +15,8 @@ export function useJournalForm() {
   const urlStockId = searchParams.get('stockId') || ''
   const urlStockName = searchParams.get('stockName') || ''
   const urlStockCode = searchParams.get('stockCode') || ''
+  const urlPrice = searchParams.get('price') || ''
+  const urlDate = searchParams.get('date') || ''
 
   const [isLoadingDetail, setIsLoadingDetail] = useState<boolean>(false)
 
@@ -24,6 +26,8 @@ export function useJournalForm() {
       stockId: urlStockId,
       stockName: urlStockName || '종목을 선택해 주세요',
       stockCode: urlStockCode,
+      price: urlPrice,
+      tradeDateTime: urlDate ? `${urlDate}T09:00` : undefined,
     })
   )
 

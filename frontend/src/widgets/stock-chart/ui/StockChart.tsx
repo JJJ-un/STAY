@@ -9,11 +9,18 @@ import {
 } from '@/features/timeline-markers'
 
 interface StockChartProps {
-  ticker?: string
+  ticker: string
+  selectedPoint?: { date: string; price: number } | null
   onJournalClick?: (journalId: number) => void
+  onSelectPoint?: (date: string | null, price?: number) => void
 }
 
-export function StockChart({ ticker = 'NVDA', onJournalClick }: StockChartProps) {
+export function StockChart({
+  ticker,
+  selectedPoint,
+  onJournalClick,
+  onSelectPoint,
+}: StockChartProps) {
   const [range, setRange] = useState<ChartRangeType>('MONTH_3')
   const [selectedMarker, setSelectedMarker] = useState<StockTimelineMarker | null>(
     ALL_MOCK_TIMELINE_MARKERS[1]
@@ -26,6 +33,8 @@ export function StockChart({ ticker = 'NVDA', onJournalClick }: StockChartProps)
 
   const handleRangeChange = (newRange: ChartRangeType) => {
     setRange(newRange)
+    // 탭 전환 시 기존 핀 마커 및 선택 상태를 깔끔하게 자동 초기화!
+    onSelectPoint?.(null)
     const nextVisible = ALL_MOCK_TIMELINE_MARKERS.filter((m) => m.rangeTags.includes(newRange))
     setSelectedMarker(nextVisible.length > 0 ? nextVisible[0] : null)
   }
@@ -42,8 +51,13 @@ export function StockChart({ ticker = 'NVDA', onJournalClick }: StockChartProps)
           size="sm"
         />
 
-        {/* 📈 [Feature 1] 캔버스 차트 영역 */}
-        <StockChartCanvas ticker={ticker} range={range} />
+        {/* 📈 [Feature 1] 캔버스 차트 영역 (선택된 날짜/가격 핀 라인 고정) */}
+        <StockChartCanvas
+          ticker={ticker}
+          range={range}
+          selectedPoint={selectedPoint}
+          onPointClick={(date, price) => onSelectPoint?.(date, price)}
+        />
 
         {/* 📍 [Feature 2] 차트 하단 타임라인 마커 뱃지 레일 */}
         <TimelineMarkerRail
@@ -53,7 +67,7 @@ export function StockChart({ ticker = 'NVDA', onJournalClick }: StockChartProps)
         />
       </div>
 
-      {/* 2. [Feature 2] 마커 뱃지 클릭 시 열리는 [나의 다짐 팝업 카드] */}
+      {/* 2. [Feature 3] 마커 뱃지 클릭 시 열리는 [나의 다짐 팝업 카드] */}
       {selectedMarker && (
         <TimelineJournalCard
           marker={selectedMarker}

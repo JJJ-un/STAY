@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
 import { Toast, useToast } from '@/shared/ui'
 import {
@@ -17,9 +19,22 @@ export function JournalWritePage() {
   const { toastState, showToast } = useToast()
 
   // 1. 단계(Step) 이동 및 뒤로가기 전담 훅
-  const { currentStep, nextStep } = useStepNavigation({
+  const { currentStep, nextStep, prevStep } = useStepNavigation({
     totalSteps: TOTAL_JOURNAL_STEPS,
   })
+
+  // 상단 헤더 뒤로가기 클릭 시 이전 스텝(3단계->2단계->1단계->퇴장)으로 이동하도록 연동
+  const outletCtx = useOutletContext<{ setCustomBackHandler?: (fn: (() => void) | null) => void }>()
+  useEffect(() => {
+    if (outletCtx?.setCustomBackHandler) {
+      outletCtx.setCustomBackHandler(() => prevStep)
+    }
+    return () => {
+      if (outletCtx?.setCustomBackHandler) {
+        outletCtx.setCustomBackHandler(null)
+      }
+    }
+  }, [prevStep, outletCtx])
 
   // 2. 폼 데이터(State) 및 유효성 검증 전담 훅 (URL editId 지원)
   const {
