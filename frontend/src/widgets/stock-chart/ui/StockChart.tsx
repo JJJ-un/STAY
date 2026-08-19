@@ -33,8 +33,10 @@ export function StockChart({
 
   const handleRangeChange = (newRange: ChartRangeType) => {
     setRange(newRange)
-    // 탭 전환 시 기존 핀 마커 및 선택 상태를 깔끔하게 자동 초기화!
-    onSelectPoint?.(null)
+    // 탭 전환 시 핀 마커가 선택되어 있는 경우에만 부모 상태 초기화 (불필요한 부모 리렌더링 차단)
+    if (selectedPoint) {
+      onSelectPoint?.(null)
+    }
     const nextVisible = ALL_MOCK_TIMELINE_MARKERS.filter((m) => m.rangeTags.includes(newRange))
     setSelectedMarker(nextVisible.length > 0 ? nextVisible[0] : null)
   }
