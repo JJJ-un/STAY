@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClient;
 @Component
 public class KisApiClient {
 
-    private static final String TR_ID_OVERSEAS_PRICE = "HHDFS76200200";
+    private static final String TR_ID_OVERSEAS_PRICE = "HHDFS00000300";
 
     private final KisAuthManager authManager;
     private final RestClient restClient;
@@ -47,7 +47,7 @@ public class KisApiClient {
 
             KisOverseasPriceResponse response = restClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path("/uapi/overseas-price/v1/quotations/price-detail")
+                            .path("/uapi/overseas-price/v1/quotations/price")
                             .queryParam("AUTH", "")
                             .queryParam("EXCD", exchangeCode)
                             .queryParam("SYMB", ticker.toUpperCase())

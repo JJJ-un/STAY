@@ -5,8 +5,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 
 /**
- * 한국투자증권 해외주식 현재가 상세 조회 응답 DTO
- * TR ID: HHDFS76200200
+ * 한국투자증권 해외주식 현재가 체결 조회 응답 DTO
+ * TR ID: HHDFS00000300
  */
 public record KisOverseasPriceResponse(
         @JsonProperty("rt_cd")
@@ -27,25 +27,22 @@ public record KisOverseasPriceResponse(
 
     public record KisOverseasPriceOutput(
             @JsonProperty("rsym")
-            String rsym, // 실시간조회종목코드 (예: NASDNVDA)
+            String rsym, // 종목코드 (예: NASDNVDA)
 
             @JsonProperty("last")
-            String last, // 현재가
+            String last, // 현재 체결가 (달러 $)
 
             @JsonProperty("base")
-            String base, // 전일종가
+            String base, // 전일 종가 (달러 $)
 
-            @JsonProperty("t_xdif")
-            String diff, // 전일대비 변동금액 (한투 공식 필드: t_xdif)
+            @JsonProperty("diff")
+            String diff, // 전일대비 변동금액 (순수 달러 $)
 
-            @JsonProperty("t_xrat")
-            String rate, // 당일 등락률 % (한투 공식 필드: t_xrat)
+            @JsonProperty("rate")
+            String rate, // 전일대비 등락률 (%)
 
             @JsonProperty("tvol")
-            String tvol, // 거래량
-
-            @JsonProperty("tomv")
-            String tomv, // 시가총액
+            String tvol, // 당일 누적 거래량
 
             @JsonProperty("open")
             String open, // 시가
@@ -54,7 +51,13 @@ public record KisOverseasPriceResponse(
             String high, // 고가
 
             @JsonProperty("low")
-            String low // 저가
+            String low, // 저가
+
+            @JsonProperty("tomv")
+            String tomv, // 시가총액
+
+            @JsonProperty("pvol")
+            String pvol // 전일 거래량
     ) {
         public BigDecimal getLastAsBigDecimal() {
             return (last != null && !last.isBlank())
