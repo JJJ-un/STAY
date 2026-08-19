@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createChart, type IChartApi, type ISeriesApi, AreaSeries, type Time } from 'lightweight-charts'
 import { getStockChart, type ChartRangeType } from '@/entities/stock'
+import { useStockPriceSSE } from '@/shared/lib/useStockPriceSSE'
 import { MOCK_CHART_SERIES, toChartTime } from '../model/mock'
 
 interface StockChartCanvasProps {
@@ -13,6 +14,9 @@ export function StockChartCanvas({ ticker = 'NVDA', range }: StockChartCanvasPro
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Area'> | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false)
+
+  // 한투 실시간 체결 SSE 수신
+  const { realtimePrices } = useStockPriceSSE()
 
   // 1. 차트 인스턴스 생성 및 캔버스 초기화
   useEffect(() => {
@@ -123,6 +127,25 @@ export function StockChartCanvas({ ticker = 'NVDA', range }: StockChartCanvasPro
       isMounted = false
     }
   }, [ticker, range])
+
+  // 3. SSE로 실시간 주가 수신 시 차트 맨 오른쪽 끝 점 실시간 꿀렁임 (DAY_1 당일 차트 모드일 때)
+  useEffect(() => {
+    if (!seriesRef.current || range !== 'DAY_1') return
+
+    const tickerUpper = ticker.toUpperCase()
+    const realtimeData = realtimePrices[tickerUpper]
+    if (realtimeData && realtimeData.currentPrice > 0) {
+      try {
+        const nowInSeconds = Math.floor(Date.now() / 1000) as Time
+        seriesRef.current.update({
+          time: nowInSeconds,
+          value: realtimeData.currentPrice,
+        })
+      } catch (err) {
+        // time scale 충돌 방어
+      }
+    }
+  }, [realtimePrices, ticker, range])
 
   return (
     <div className="relative pt-1 w-full overflow-hidden">

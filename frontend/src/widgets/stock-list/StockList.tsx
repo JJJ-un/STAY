@@ -1,117 +1,16 @@
+import { useState, useEffect } from 'react'
+import { getStocks, type StockResponse } from '@/entities/stock'
+import { useStockPriceSSE } from '@/shared/lib/useStockPriceSSE'
+
 export type StockFilterType = 'RANK' | 'VOLUME' | 'RISING' | 'FALLING'
 
-export interface StockItem {
-  id: string
-  rank: number
-  name: string
-  code: string
-  market: 'KR' | 'US'
-  price: string
-  changeRate: string
-  rateNum: number
-  volumeNum: number
-  isUp?: boolean
-  isDown?: boolean
+// 탭 필터 ➔ 백엔드 정렬 파라미터 매핑
+const FILTER_TO_SORT_MAP: Record<StockFilterType, 'VOLUME' | 'GAINERS' | 'LOSERS' | 'MARKET_CAP'> = {
+  RANK: 'MARKET_CAP',
+  VOLUME: 'VOLUME',
+  RISING: 'GAINERS',
+  FALLING: 'LOSERS',
 }
-
-export const MOCK_STOCKS: StockItem[] = [
-  {
-    id: '1',
-    rank: 1,
-    name: '엔비디아 (NVIDIA)',
-    code: 'NVDA',
-    market: 'US',
-    price: '$128.30',
-    changeRate: '+1.98%',
-    rateNum: 1.98,
-    volumeNum: 45120300,
-    isUp: true,
-  },
-  {
-    id: '2',
-    rank: 2,
-    name: 'TSMC (Taiwan Semi)',
-    code: 'TSM',
-    market: 'US',
-    price: '$174.50',
-    changeRate: '+2.45%',
-    rateNum: 2.45,
-    volumeNum: 28400000,
-    isUp: true,
-  },
-  {
-    id: '3',
-    rank: 3,
-    name: 'AMD (Advanced Micro)',
-    code: 'AMD',
-    market: 'US',
-    price: '$148.20',
-    changeRate: '-1.15%',
-    rateNum: -1.15,
-    volumeNum: 31200000,
-    isDown: true,
-  },
-  {
-    id: '4',
-    rank: 4,
-    name: '브로드컴 (Broadcom)',
-    code: 'AVGO',
-    market: 'US',
-    price: '$162.80',
-    changeRate: '+0.85%',
-    rateNum: 0.85,
-    volumeNum: 18900000,
-    isUp: true,
-  },
-  {
-    id: '5',
-    rank: 5,
-    name: 'ASML (ASML Holding)',
-    code: 'ASML',
-    market: 'US',
-    price: '$890.00',
-    changeRate: '+1.20%',
-    rateNum: 1.20,
-    volumeNum: 9500000,
-    isUp: true,
-  },
-  {
-    id: '6',
-    rank: 6,
-    name: '퀄컴 (Qualcomm)',
-    code: 'QCOM',
-    market: 'US',
-    price: '$168.40',
-    changeRate: '-0.65%',
-    rateNum: -0.65,
-    volumeNum: 14200000,
-    isDown: true,
-  },
-  {
-    id: '7',
-    rank: 7,
-    name: '인텔 (Intel)',
-    code: 'INTC',
-    market: 'US',
-    price: '$21.50',
-    changeRate: '-2.80%',
-    rateNum: -2.80,
-    volumeNum: 52100000,
-    isDown: true,
-  },
-  {
-    id: '8',
-    rank: 8,
-    name: '마이크론 (Micron)',
-    code: 'MU',
-    market: 'US',
-    price: '$105.60',
-    changeRate: '+3.10%',
-    rateNum: 3.10,
-    volumeNum: 22800000,
-    isUp: true,
-  },
-]
 
 interface StockListProps {
   filter?: StockFilterType
@@ -124,70 +23,147 @@ export function StockList({
   showRank = true,
   onSelectStock,
 }: StockListProps) {
-  // 필터 정렬 로직
-  const sortedStocks = [...MOCK_STOCKS].sort((a, b) => {
-    if (filter === 'RANK') {
-      return a.rank - b.rank
-    }
-    if (filter === 'VOLUME') {
-      return b.volumeNum - a.volumeNum
-    }
-    if (filter === 'RISING') {
-      return b.rateNum - a.rateNum
-    }
-    if (filter === 'FALLING') {
-      return a.rateNum - b.rateNum
-    }
-    return 0
-  })
+  const [stocks, setStocks] = useState<StockResponse[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
 
+  // 한국투자증권 실시간 웹소켓 ➔ 백엔드 ➔ 프론트엔드 SSE 수신 훅
+  const { realtimePrices, lastUpdatedTicker } = useStockPriceSSE()
+
+  // 1. 탭 필터 변경 시 백엔드 실제 종목 목록 API 호출
+  useEffect(() => {
+    let isMounted = true
+    setIsLoading(true)
+    setError(null)
+
+    const sortParam = FILTER_TO_SORT_MAP[filter] || 'MARKET_CAP'
+
+    getStocks(sortParam)
+      .then((data) => {
+        if (isMounted) {
+          setStocks(Array.isArray(data) ? data : [])
+          setIsLoading(false)
+        }
+      })
+      .catch((err) => {
+        console.error('종목 목록 조회 실패:', err)
+        if (isMounted) {
+          setError('종목 목록을 불러오지 못했습니다.')
+          setIsLoading(false)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [filter])
+
+  // 2. 로딩 스켈레톤 (회색선 없이 부드러운 펄스)
+  if (isLoading) {
+    return (
+      <div className="space-y-2.5 scrollbar-none">
+        {[1, 2, 3, 4, 5, 6].map((idx) => (
+          <div
+            key={idx}
+            className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between animate-pulse"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="w-5 h-5 bg-slate-200 rounded-md" />
+              <div className="space-y-1.5">
+                <div className="w-28 h-4 bg-slate-200 rounded-md" />
+                <div className="w-12 h-3 bg-slate-200 rounded-md" />
+              </div>
+            </div>
+            <div className="space-y-1.5 text-right">
+              <div className="w-16 h-4 bg-slate-200 rounded-md ml-auto" />
+              <div className="w-12 h-3 bg-slate-200 rounded-md ml-auto" />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // 3. 에러 발생 시
+  if (error || stocks.length === 0) {
+    return (
+      <div className="bg-slate-50 rounded-3xl p-8 text-center space-y-2 scrollbar-none">
+        <p className="text-xs font-bold text-slate-700">
+          {error || '조회된 종목이 없습니다.'}
+        </p>
+      </div>
+    )
+  }
+
+  // 4. 실제 실시간 종목 리스트 렌더링
   return (
-    <div className="bg-white rounded-xl">
-      {sortedStocks.map((stock, idx) => (
-        <div
-          key={stock.id}
-          onClick={() => onSelectStock?.(stock.code)}
-          className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer active:bg-slate-100"
-        >
-          {/* 종목 좌측 순위 및 종목명/티커 */}
-          <div className="flex items-center gap-3">
-            {showRank && (
-              <span
-                className={`text-sm font-bold w-4 text-center tabular-nums ${
-                  idx < 3 ? 'text-blue-600 font-extrabold' : 'text-slate-400 font-medium'
+    <div className="space-y-2 scrollbar-none">
+      {stocks.map((item, index) => {
+        const upperTicker = item.ticker.toUpperCase()
+        const realtimeData = realtimePrices[upperTicker]
+
+        // 실시간 시세가 있으면 최우선 반영, 없으면 초기 API 시세 사용
+        const currentPrice = realtimeData ? realtimeData.currentPrice : item.currentPrice
+        const changeRate = realtimeData ? realtimeData.changeRate : item.changeRate
+        const isUp = changeRate > 0
+        const isDown = changeRate < 0
+
+        // 방금 실시간 체결이 발생한 종목인지 확인
+        const isJustUpdated = lastUpdatedTicker === upperTicker
+
+        return (
+          <div
+            key={item.stockId || item.ticker}
+            onClick={() => onSelectStock?.(item.ticker)}
+            className={`flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition-all active:scale-[0.99] ${
+              isJustUpdated
+                ? isUp
+                  ? 'bg-red-50/80'
+                  : 'bg-blue-50/80'
+                : 'bg-slate-50/80 hover:bg-slate-100/70'
+            }`}
+          >
+            {/* 좌측: 순위 & 종목명 & 티커 */}
+            <div className="flex items-center gap-3">
+              {showRank && (
+                <span className="w-5 text-center text-xs font-black text-slate-400 tabular-nums">
+                  {index + 1}
+                </span>
+              )}
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                  {item.name}
+                </h3>
+                <span className="text-[11px] font-semibold text-slate-400 mt-0.5 block">
+                  {item.ticker}
+                </span>
+              </div>
+            </div>
+
+            {/* 우측: 실시간 현재가 & 등락률 (1초마다 깜빡임 애니메이션) */}
+            <div className="text-right space-y-0.5">
+              <p
+                className={`text-sm font-black tabular-nums transition-colors duration-300 ${
+                  isJustUpdated
+                    ? isUp
+                      ? 'text-red-600 font-black scale-105'
+                      : 'text-blue-600 font-black scale-105'
+                    : 'text-slate-900'
                 }`}
               >
-                {idx + 1}
-              </span>
-            )}
-
-            <div>
-              <div className="text-sm font-semibold text-slate-800">
-                {stock.name}
-              </div>
-              <div className="text-xs text-slate-400 mt-0.5">{stock.code}</div>
+                ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p
+                className={`text-xs font-bold tabular-nums ${
+                  isUp ? 'text-red-500' : isDown ? 'text-blue-600' : 'text-slate-400'
+                }`}
+              >
+                {isUp ? `+${changeRate.toFixed(2)}%` : `${changeRate.toFixed(2)}%`}
+              </p>
             </div>
           </div>
-
-          {/* 우측 현재가 및 등락률 */}
-          <div className="text-right">
-            <div className="text-sm font-bold text-slate-900 tabular-nums">
-              {stock.price}
-            </div>
-            <div
-              className={`text-xs font-medium tabular-nums ${
-                stock.isDown
-                  ? 'text-blue-600'
-                  : stock.isUp
-                  ? 'text-red-500'
-                  : 'text-slate-400'
-              }`}
-            >
-              {stock.changeRate}
-            </div>
-          </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

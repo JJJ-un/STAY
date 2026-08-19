@@ -89,4 +89,37 @@ public class KisAuthManager {
     public String getAppSecret() {
         return appSecret;
     }
+
+    /**
+     * 한국투자증권 실시간 웹소켓(WebSocket) 전용 접속키(Approval Key) 발급
+     */
+    public String getWebSocketApprovalKey() {
+        try {
+            log.info("한국투자증권(KIS) 실시간 웹소켓 Approval Key 발급 요청");
+
+            Map<String, String> requestBody = Map.of(
+                    "grant_type", "client_credentials",
+                    "appkey", appKey,
+                    "secretkey", appSecret
+            );
+
+            com.stay.backend.infra.kis.dto.KisApprovalResponse response = restClient.post()
+                    .uri("/oauth2/Approval")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(requestBody)
+                    .retrieve()
+                    .body(com.stay.backend.infra.kis.dto.KisApprovalResponse.class);
+
+            if (response == null || response.approvalKey() == null) {
+                log.error("KIS 웹소켓 Approval Key 응답이 비어있습니다.");
+                throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+            }
+
+            log.info("KIS 웹소켓 Approval Key 발급 성공");
+            return response.approvalKey();
+        } catch (Exception e) {
+            log.error("KIS 웹소켓 Approval Key 발급 실패: {}", e.getMessage(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
