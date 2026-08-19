@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Header } from '@/widgets/header'
 import { BottomNav } from '@/widgets/bottom-nav'
@@ -8,7 +7,6 @@ export function RootLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const pathname = location.pathname
-  const [customBackHandler, setCustomBackHandler] = useState<(() => void) | null>(null)
 
   // 현재 라우트에 따른 동적 헤더 Props 계산
   const getHeaderProps = () => {
@@ -33,7 +31,7 @@ export function RootLayout() {
     if (pathname === '/journal/write') {
       return {
         showBackButton: true,
-        onBack: customBackHandler || (() => navigate(-1)),
+        onBack: () => navigate(-1),
         title: '새 주식일지 작성',
         rightAction: null,
       }
@@ -91,7 +89,7 @@ export function RootLayout() {
 
         {/* 페이지 본문 영역 (React Router Outlet) */}
         <main className="flex-1 flex flex-col">
-          <Outlet context={{ setCustomBackHandler }} />
+          <Outlet />
         </main>
 
         {/* 최하단 고정 내비게이션 바 */}
