@@ -1,5 +1,6 @@
 import { useStocksQuery, type StockSortType } from '@/entities/stock'
 import { StockListItem } from './StockListItem'
+import { StockListSkeleton } from './StockListSkeleton'
 
 export type StockFilterType = 'RANK' | 'VOLUME' | 'RISING' | 'FALLING'
 
@@ -24,41 +25,34 @@ export function StockList({
 }: StockListProps) {
   const sortParam = FILTER_TO_SORT_MAP[filter] || 'MARKET_CAP'
 
-  // TanStack Query 캐싱 적용 (30초 신선도, 10분 gcTime, 탭 전환 시 깜빡임 방지)
-  const { data: stocks = [], isLoading, isError } = useStocksQuery(sortParam)
+  const { data: stocks = [], isLoading, isError, refetch } = useStocksQuery(sortParam)
 
-  // 1. 최초 로딩 스켈레톤 (회색선 없이 부드러운 펄스)
   if (isLoading && stocks.length === 0) {
+    return <StockListSkeleton count={8} />
+  }
+  if (isError) {
     return (
-      <div className="space-y-2.5 scrollbar-none">
-        {[1, 2, 3, 4, 5, 6].map((idx) => (
-          <div
-            key={idx}
-            className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between animate-pulse"
-          >
-            <div className="flex items-center gap-3.5">
-              <div className="w-5 h-5 bg-slate-200 rounded-md" />
-              <div className="space-y-1.5">
-                <div className="w-28 h-4 bg-slate-200 rounded-md" />
-                <div className="w-12 h-3 bg-slate-200 rounded-md" />
-              </div>
-            </div>
-            <div className="space-y-1.5 text-right">
-              <div className="w-16 h-4 bg-slate-200 rounded-md ml-auto" />
-              <div className="w-12 h-3 bg-slate-200 rounded-md ml-auto" />
-            </div>
-          </div>
-        ))}
+      <div className="bg-slate-50 rounded-3xl p-8 text-center space-y-3 scrollbar-none">
+        <p className="text-xs font-bold text-slate-700">
+          종목 목록을 불러오지 못했습니다.
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="text-xs font-bold text-slate-900 bg-white px-3 py-1.5 rounded-xl shadow-sm hover:bg-slate-100 transition-colors"
+        >
+          다시 시도
+        </button>
       </div>
     )
   }
 
-  // 2. 에러 발생 시
-  if (isError || stocks.length === 0) {
+  // 3. 정상 조회되었으나 목록이 비어있는 경우 (Empty State)
+  if (stocks.length === 0) {
     return (
       <div className="bg-slate-50 rounded-3xl p-8 text-center space-y-2 scrollbar-none">
-        <p className="text-xs font-bold text-slate-700">
-          {isError ? '종목 목록을 불러오지 못했습니다.' : '조회된 종목이 없습니다.'}
+        <p className="text-xs font-bold text-slate-400">
+          조회된 종목이 없습니다.
         </p>
       </div>
     )
