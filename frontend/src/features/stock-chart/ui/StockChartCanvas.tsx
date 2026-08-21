@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createChart, type IChartApi, type ISeriesApi, type IPriceLine, AreaSeries, type Time, LineStyle } from 'lightweight-charts'
-import type { ChartRangeType } from '@/entities/stock'
-import { useStockPriceSSE } from '@/shared/lib/useStockPriceSSE'
+import { useRealtimePrice, type ChartRangeType } from '@/entities/stock'
 import { useStockChartQuery } from '../model/useStockChartQuery'
 import { MOCK_CHART_SERIES, toChartTime } from '../model/mock'
 import { formatChartTimeToString } from '../lib/chartTimeFormatter'
@@ -33,8 +32,8 @@ export function StockChartCanvas({
     onPointClickRef.current = onPointClick
   }, [onPointClick])
 
-  // 한투 실시간 체결 SSE 수신
-  const { realtimePrices } = useStockPriceSSE()
+  // 현재 차트 종목의 실시간 체결가만 정밀 구독
+  const realtimeData = useRealtimePrice(ticker)
 
   // 2. 차트 인스턴스 생성 및 캔버스 초기화 (오직 최초 1회만 생성하여 깜빡임 방지)
   useEffect(() => {
@@ -174,8 +173,6 @@ export function StockChartCanvas({
   useEffect(() => {
     if (!seriesRef.current || range !== 'DAY_1') return
 
-    const tickerUpper = ticker.toUpperCase()
-    const realtimeData = realtimePrices[tickerUpper]
     if (realtimeData && realtimeData.currentPrice > 0) {
       try {
         const nowInSeconds = Math.floor(Date.now() / 1000) as Time
@@ -187,7 +184,7 @@ export function StockChartCanvas({
         // time scale 충돌 방어
       }
     }
-  }, [realtimePrices, ticker, range])
+  }, [realtimeData, range])
 
   return (
     <div className="relative pt-1 w-full overflow-hidden">
