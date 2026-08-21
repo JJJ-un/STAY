@@ -1,6 +1,7 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryProvider } from '@/app/providers/QueryProvider'
-import { SSEProvider } from '@/app/providers/SSEProvider'
+import { connectStockSSE } from '@/entities/stock'
 import { RootLayout } from '@/app/layout/RootLayout'
 import { ProtectedRoute } from '@/app/routes/ProtectedRoute'
 import { MainPage } from '@/pages/main'
@@ -14,11 +15,15 @@ import { MyPage } from '@/pages/my'
 import { LoginPage, OAuthCallbackPage } from '@/pages/login'
 
 export function App() {
+  // 앱 전역 실시간 주가 SSE 스트림 연결 (순수 TS 싱글톤 매니저)
+  useEffect(() => {
+    return connectStockSSE()
+  }, [])
+
   return (
     <QueryProvider>
-      <SSEProvider>
-        <BrowserRouter>
-          <Routes>
+      <BrowserRouter>
+        <Routes>
             {/* 1. 상단/하단 내비게이션 레이아웃이 적용되는 서비스 화면 */}
             <Route element={<RootLayout />}>
               <Route path="/" element={<MainPage />} />
@@ -60,7 +65,6 @@ export function App() {
             />
           </Routes>
         </BrowserRouter>
-      </SSEProvider>
     </QueryProvider>
   )
 }

@@ -1,7 +1,6 @@
 import { Skeleton } from '@/shared/ui'
 import { formatUsd } from '@/shared/lib'
-import { StockPriceBadge, type StockResponse } from '@/entities/stock'
-import { useStockPriceSSE } from '@/shared/lib/useStockPriceSSE'
+import { StockPriceBadge, useRealtimePrice, type StockResponse } from '@/entities/stock'
 
 interface StockHeaderProps {
   stock: StockResponse | null
@@ -9,7 +8,8 @@ interface StockHeaderProps {
 }
 
 export function StockHeader({ stock, isLoading }: StockHeaderProps) {
-  const { realtimePrices } = useStockPriceSSE()
+  // 현재 보고 있는 종목의 실시간 시세만 정밀 구독 (다른 7개 종목 변동 시 리렌더링 0회)
+  const realtimeData = useRealtimePrice(stock?.ticker)
 
   if (isLoading || !stock) {
     return (
@@ -25,10 +25,6 @@ export function StockHeader({ stock, isLoading }: StockHeaderProps) {
       </div>
     )
   }
-
-  // 실시간 체결 데이터가 있으면 최우선 반영
-  const upperTicker = stock.ticker.toUpperCase()
-  const realtimeData = realtimePrices[upperTicker]
 
   const currentPrice = realtimeData ? realtimeData.currentPrice : stock.currentPrice
   const changePrice = realtimeData ? realtimeData.changePrice : stock.changePrice

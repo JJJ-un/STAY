@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getStocks, type StockResponse } from '@/entities/stock'
-import { useStockPriceSSE } from '@/shared/lib/useStockPriceSSE'
+import { getStocks, useStockPriceSSE, type StockResponse } from '@/entities/stock'
 
 export type StockFilterType = 'RANK' | 'VOLUME' | 'RISING' | 'FALLING'
 

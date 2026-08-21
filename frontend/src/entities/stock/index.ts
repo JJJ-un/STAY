@@ -1,4 +1,6 @@
 export * from './model/types'
+export * from './model/stockPriceStore'
 export * from './api/stockApi'
+export * from './api/stockSSEManager'
 export * from './api/useStockDetailQuery'
 export * from './ui/StockPriceBadge'
