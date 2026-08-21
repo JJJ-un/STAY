@@ -1,5 +1,5 @@
 import { apiClient } from '@/shared/api'
-import type { StockResponse, StockChartItem, ChartRangeType } from '../model/types'
+import type { StockResponse, StockChartItem, ChartRangeType, StockSortType } from '../model/types'
 
 export interface ApiResponse<T> {
   success: boolean
@@ -13,7 +13,7 @@ export interface ApiResponse<T> {
  * GET /api/v1/stocks?sort=...&keyword=...
  */
 export async function getStocks(
-  sort: 'VOLUME' | 'GAINERS' | 'LOSERS' | 'MARKET_CAP' = 'VOLUME',
+  sort: StockSortType = 'VOLUME',
   keyword?: string
 ): Promise<StockResponse[]> {
   const params: Record<string, string> = { sort }

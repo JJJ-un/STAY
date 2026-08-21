@@ -1,2 +1,2 @@
-export { StockList } from './StockList'
-export type { StockFilterType } from './StockList'
+export { StockList } from './ui/StockList'
+export type { StockFilterType } from './ui/StockList'
