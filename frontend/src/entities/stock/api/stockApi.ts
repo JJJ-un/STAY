@@ -16,10 +16,9 @@ export async function getStocks(
   sort: StockSortType = 'VOLUME',
   keyword?: string
 ): Promise<StockResponse[]> {
-  const params: Record<string, string> = { sort }
-  if (keyword && keyword.trim()) params.keyword = keyword.trim()
-
-  const res = await apiClient.get<ApiResponse<StockResponse[]>>('/stocks', { params })
+  const res = await apiClient.get<ApiResponse<StockResponse[]>>('/stocks', {
+    params: { sort, keyword },
+  })
   return res.data.data
 }
 
@@ -39,11 +38,8 @@ export async function getStockChart(
   range: ChartRangeType = 'MONTH_3',
   baseDate?: string
 ): Promise<StockChartItem[]> {
-  const params: Record<string, string> = { range }
-  if (baseDate) params.baseDate = baseDate
-
   const res = await apiClient.get<ApiResponse<StockChartItem[]>>(`/stocks/${ticker}/charts`, {
-    params,
+    params: { range, baseDate },
   })
   return res.data.data
 }

@@ -1,25 +1,24 @@
+import { useNavigate } from 'react-router-dom'
 import { formatUsd } from '@/shared/lib'
 import { useRealtimePrice, type StockResponse } from '@/entities/stock'
 import { useStockPriceFlash } from '../lib/useStockPriceFlash'
 
 interface StockListItemProps {
   stock: StockResponse
-  index?: number
-  showRank?: boolean
-  onSelect?: (ticker: string) => void
+  rank?: number
 }
 
 /**
  * 개별 종목 카드 렌더링 컴포넌트
  * - useRealtimePrice(stock.ticker): 오직 자기 종목 틱이 올 때만 정밀 렌더링
  * - useStockPriceFlash: 가격 변동 시 0.5초 펄스 애니메이션 분리 훅
+ * - 클릭 시 상세 페이지(/stock/:ticker)로 자동 이동
  */
 export function StockListItem({
   stock,
-  index,
-  showRank = true,
-  onSelect,
+  rank,
 }: StockListItemProps) {
+  const navigate = useNavigate()
   const realtimeData = useRealtimePrice(stock.ticker)
 
   // 실시간 시세 우선, 없으면 초기 REST API 시세 사용
@@ -32,7 +31,7 @@ export function StockListItem({
 
   return (
     <div
-      onClick={() => onSelect?.(stock.ticker)}
+      onClick={() => navigate(`/stock/${stock.ticker}`)}
       className={`flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition-all duration-300 active:scale-[0.99] ${isFlashing
         ? isUp
           ? 'bg-red-50/90'
@@ -42,9 +41,9 @@ export function StockListItem({
     >
       {/* 좌측: 순위 & 종목명 & 티커 */}
       <div className="flex items-center gap-3">
-        {showRank && index !== undefined && (
+        {rank !== undefined && (
           <span className="w-5 text-center text-xs font-black text-slate-400 tabular-nums">
-            {index + 1}
+            {rank}
           </span>
         )}
         <div>

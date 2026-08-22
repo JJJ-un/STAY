@@ -43,7 +43,6 @@ export function MainPage() {
               <StockList
                 filter={stockFilter}
                 showRank={true}
-                onSelectStock={(ticker) => navigate(`/stock/${ticker}`)}
               />
             </div>
           </div>

@@ -9,10 +9,7 @@ const STOCK_TAB_ITEMS: TabItem<StockFilterType>[] = [
   { id: 'FALLING', label: '급하락' },
 ]
 
-import { useNavigate } from 'react-router-dom'
-
 export function StockPage() {
-  const navigate = useNavigate()
   const [activeFilter, setActiveFilter] = useState<StockFilterType>('RANK')
 
   return (
@@ -34,7 +31,6 @@ export function StockPage() {
         <StockList
           filter={activeFilter}
           showRank={false}
-          onSelectStock={(ticker) => navigate(`/stock/${ticker}`)}
         />
       </div>
     </div>

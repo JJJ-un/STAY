@@ -15,13 +15,11 @@ const FILTER_TO_SORT_MAP: Record<StockFilterType, StockSortType> = {
 interface StockListProps {
   filter?: StockFilterType
   showRank?: boolean
-  onSelectStock?: (ticker: string) => void
 }
 
 export function StockList({
   filter = 'RANK',
   showRank = true,
-  onSelectStock,
 }: StockListProps) {
   const sortParam = FILTER_TO_SORT_MAP[filter] || 'MARKET_CAP'
 
@@ -65,9 +63,7 @@ export function StockList({
         <StockListItem
           key={item.stockId || item.ticker}
           stock={item}
-          index={index}
-          showRank={showRank}
-          onSelect={onSelectStock}
+          rank={showRank ? index + 1 : undefined}
         />
       ))}
     </div>
