@@ -1,16 +1,8 @@
-import { useStocksQuery, type StockSortType } from '@/entities/stock'
+import { useStocksQuery } from '@/entities/stock'
 import { StockListItem } from './StockListItem'
 import { StockListSkeleton } from './StockListSkeleton'
+import { FILTER_TO_SORT_MAP, type StockFilterType } from '../model/constants'
 
-export type StockFilterType = 'RANK' | 'VOLUME' | 'RISING' | 'FALLING'
-
-// 탭 필터 ➔ 백엔드 정렬 파라미터 매핑
-const FILTER_TO_SORT_MAP: Record<StockFilterType, StockSortType> = {
-  RANK: 'MARKET_CAP',
-  VOLUME: 'VOLUME',
-  RISING: 'GAINERS',
-  FALLING: 'LOSERS',
-}
 
 interface StockListProps {
   filter?: StockFilterType

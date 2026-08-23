@@ -1,16 +1,18 @@
-import { useState } from 'react'
-import { Tabs, type TabItem } from '@/shared/ui'
-import { StockList, type StockFilterType } from '@/widgets/stock-list'
-
-const STOCK_TAB_ITEMS: TabItem<StockFilterType>[] = [
-  { id: 'RANK', label: '실시간 순위' },
-  { id: 'VOLUME', label: '거래량' },
-  { id: 'RISING', label: '급상승' },
-  { id: 'FALLING', label: '급하락' },
-]
+import { useQueryParam } from '@/shared/lib'
+import { Tabs } from '@/shared/ui'
+import {
+  StockList,
+  STOCK_TAB_ITEMS,
+  VALID_STOCK_FILTERS,
+  type StockFilterType,
+} from '@/widgets/stock-list'
 
 export function StockPage() {
-  const [activeFilter, setActiveFilter] = useState<StockFilterType>('RANK')
+  const [activeFilter, setActiveFilter] = useQueryParam<StockFilterType>(
+    'tab',
+    'RANK',
+    VALID_STOCK_FILTERS
+  )
 
   return (
     <div className="flex-1 flex flex-col">

@@ -2,10 +2,13 @@ import { Tabs, type TabItem } from '@/shared/ui'
 
 export type MainTabType = 'RECOMMEND' | 'COMMUNITY'
 
-const MAIN_TAB_ITEMS: TabItem<MainTabType>[] = [
+export const MAIN_TAB_ITEMS: TabItem<MainTabType>[] = [
   { id: 'RECOMMEND', label: '추천 다짐' },
   { id: 'COMMUNITY', label: '다른 사람들 피드' },
 ]
+
+export const VALID_MAIN_TABS: readonly MainTabType[] = ['RECOMMEND', 'COMMUNITY'] as const
+
 
 interface MainTabProps {
   activeTab: MainTabType
