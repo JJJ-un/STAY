@@ -10,7 +10,7 @@ import type { StockResponse, StockSortType } from '../model/types'
  * - refetchOnWindowFocus: false (SSE 실시간 스트림과의 충돌 방지 및 네트워크 절감)
  */
 export function useStocksQuery(sort: StockSortType = 'VOLUME', keyword?: string) {
-  const normalizedKeyword = keyword?.trim()
+  const normalizedKeyword = keyword?.trim() || undefined
 
   return useQuery<StockResponse[]>({
     queryKey: ['stocks', 'list', sort, normalizedKeyword],
