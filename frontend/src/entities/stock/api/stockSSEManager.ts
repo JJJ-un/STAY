@@ -22,28 +22,6 @@ function normalizeStockPrice(raw: unknown): RealtimeStockPriceItem | null {
 }
 
 /**
- * 8대 종목 일괄 시세 JSON 파싱 및 정규화 (단일 패스 O(N) 순회)
- */
-function parseStockPrices(rawData: string): RealtimeStockPriceItem[] {
-  try {
-    const parsed = JSON.parse(rawData)
-    if (!Array.isArray(parsed)) return []
-
-    const result: RealtimeStockPriceItem[] = []
-    for (const item of parsed) {
-      const normalized = normalizeStockPrice(item)
-      if (normalized) {
-        result.push(normalized)
-      }
-    }
-    return result
-  } catch (err) {
-    console.error('SSE 전체 시세 파싱 에러:', err)
-    return []
-  }
-}
-
-/**
  * 단일 종목 실시간 체결 JSON 파싱 및 정규화
  */
 function parseSingleStockPrice(rawData: string): RealtimeStockPriceItem | null {
@@ -83,15 +61,7 @@ export function connectStockSSE(): () => void {
       useStockPriceStore.getState().setConnected(true)
     })
 
-    // 2. 8대 종목 일괄 시세 수신
-    eventSource.addEventListener('stock-prices', (event: MessageEvent) => {
-      const stocks = parseStockPrices(event.data)
-      if (stocks.length > 0) {
-        useStockPriceStore.getState().setAllPrices(stocks)
-      }
-    })
-
-    // 3. 단일 종목 실시간 체결 수신
+    // 2. 단일 종목 실시간 체결 수신 (단일 갱신 스트림)
     eventSource.addEventListener('stock-price-update', (event: MessageEvent) => {
       const stock = parseSingleStockPrice(event.data)
       if (stock) {
