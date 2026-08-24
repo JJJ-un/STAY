@@ -1,4 +1,4 @@
-import { apiClient } from '@/shared/api'
+import { apiClient, type ApiResponse } from '@/shared/api'
 import type {
   JournalCreateRequest,
   JournalUpdateRequest,
@@ -7,12 +7,6 @@ import type {
   TradeType,
 } from '../model/types'
 
-export interface ApiResponse<T> {
-  success: boolean
-  code: string
-  message: string
-  data: T
-}
 
 /**
  * 주식일지(Journal) 관련 백엔드 API 클라이언트

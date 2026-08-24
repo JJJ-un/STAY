@@ -1,12 +1,6 @@
-import { apiClient } from '@/shared/api'
+import { apiClient, type ApiResponse } from '@/shared/api'
 import type { StockResponse, StockChartItem, ChartRangeType, StockSortType } from '../model/types'
 
-export interface ApiResponse<T> {
-  success: boolean
-  code: string
-  message: string
-  data: T
-}
 
 /**
  * 해외 반도체 종목 목록 조회 (정렬 및 검색어 지원)
