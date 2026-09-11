@@ -14,6 +14,7 @@ import com.stay.backend.infra.kis.dto.KisChartPriceResponse;
 import com.stay.backend.infra.kis.dto.KisMinuteChartPriceResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,12 +40,18 @@ public class StockChartService {
 
     /**
      * 특정 종목의 차트 데이터 조회 (과거 ➔ 최신 시간순 정렬)
+     * - Caffeine 중앙 캐시 적용: 캐시에 존재 시 0ms 즉시 반환, 만료 시 한투 API 1회만 호출
      *
      * @param ticker 종목 티커 (예: NVDA, AMD, TSM)
      * @param range 차트 기간 탭 (DAY_1, WEEK_1, MONTH_3, YEAR_1, YEAR_5)
      * @param baseDate 기준 일자 (YYYYMMDD, nullable)
      * @return 시간순 정렬된 캔들/시세 응답 리스트
      */
+    @Cacheable(
+            cacheNames = "stockCharts",
+            key = "#ticker.trim().toUpperCase() + '_' + (#range != null ? #range.name() : 'MONTH_3') + '_' + (#baseDate != null ? #baseDate : 'TODAY')",
+            sync = true
+    )
     public List<StockChartResponse> getChartData(String ticker, ChartRangeType range, String baseDate) {
         if (ticker == null || ticker.isBlank()) {
             throw new CustomException(ErrorCode.INVALID_INPUT_VALUE);

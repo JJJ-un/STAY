@@ -1,15 +1,11 @@
 package com.stay.backend.domain.stock.service;
 
-import com.stay.backend.domain.journal.entity.Journal;
 import com.stay.backend.domain.journal.repository.JournalRepository;
 import com.stay.backend.domain.stock.dto.StockChartResponse;
+import com.stay.backend.domain.stock.dto.TrackingTargetDto;
 import com.stay.backend.domain.stock.entity.ChartRangeType;
-import com.stay.backend.domain.stock.entity.Stock;
 import com.stay.backend.domain.stock.service.StockTrackingService.TrackingAlertResult;
-import com.stay.backend.domain.user.entity.AuthProvider;
-import com.stay.backend.domain.user.entity.User;
 import lombok.extern.slf4j.Slf4j;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,10 +13,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,38 +44,25 @@ class StockTrackingServiceTest {
     @Spy
     private PatternMatchingEngine patternMatchingEngine = new PatternMatchingEngine();
 
-    private User testUser;
-    private Stock testStock;
-
-    @BeforeEach
-    void setUp() {
-        testUser = User.builder()
-                .email("test@stay.com")
-                .nickname("테스터")
-                .authProvider(AuthProvider.GOOGLE)
-                .providerId("google_12345")
-                .build();
-        ReflectionTestUtils.setField(testUser, "id", 1L);
-
-        testStock = createStock(1L, "엔비디아", "NVDA", 128.50);
-    }
-
     @Test
     @DisplayName("과거 패턴과 현재 실시간 차트가 85% 이상 일치하면 PATTERN_MATCHED 알림을 발생시킨다")
     void shouldTriggerPatternMatchedAlertWhenSimilarityExceedsThreshold() {
-        // 1. Given (준비: 일지에 5개 과거 급락 캔들 저장)
-        Journal journal = Journal.builder()
-                .user(testUser)
-                .stock(testStock)
-                .stayMessage("과거 급락 패턴 재현! 뇌동매도 금지!")
-                .chartRangeType(ChartRangeType.MONTH_3)
-                .pricePattern("[100.0, 95.0, 90.0, 88.0, 94.0]")
-                .isTracking(true)
-                .similarityThreshold(0.85)
-                .build();
-        ReflectionTestUtils.setField(journal, "id", 100L);
+        // 1. Given (준비: DTO 프로젝션으로 5개 과거 급락 캔들 전달)
+        TrackingTargetDto target = new TrackingTargetDto(
+                100L,
+                1L,
+                "NVDA",
+                bd(128.50),
+                null,
+                null,
+                "과거 급락 패턴 재현! 뇌동매도 금지!",
+                ChartRangeType.MONTH_3,
+                "[100.0, 95.0, 90.0, 88.0, 94.0]",
+                0.85,
+                true
+        );
 
-        given(journalRepository.findAllActiveTrackingJournals()).willReturn(List.of(journal));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(target));
 
         // 실시간 한투 API에서 가져온 현재 차트 (99% 유사 파동)
         List<StockChartResponse> mockChart = createMockChart(100.0, 96.0, 91.0, 89.0, 95.0);
@@ -105,19 +88,21 @@ class StockTrackingServiceTest {
     @DisplayName("현재가가 목표가 이상으로 도달하면 TARGET_PRICE_HIT 알림을 발생시킨다")
     void shouldTriggerTargetPriceHitAlertWhenPriceReachesTarget() {
         // 1. Given (목표가 $150.00 설정)
-        Journal journal = Journal.builder()
-                .user(testUser)
-                .stock(testStock)
-                .stayMessage("목표가 도달 시 분할 익절!")
-                .chartRangeType(ChartRangeType.DAY_1)
-                .pricePattern("[120.0, 125.0, 130.0, 140.0, 150.0]")
-                .targetPrice(bd(150.0))
-                .isTracking(true)
-                .similarityThreshold(0.85)
-                .build();
-        ReflectionTestUtils.setField(journal, "id", 101L);
+        TrackingTargetDto target = new TrackingTargetDto(
+                101L,
+                1L,
+                "NVDA",
+                bd(128.50),
+                bd(150.0),
+                null,
+                "목표가 도달 시 분할 익절!",
+                ChartRangeType.DAY_1,
+                "[120.0, 125.0, 130.0, 140.0, 150.0]",
+                0.85,
+                true
+        );
 
-        given(journalRepository.findAllActiveTrackingJournals()).willReturn(List.of(journal));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(target));
 
         // 실시간 차트 마지막 종가가 $152.00로 목표가 돌파
         List<StockChartResponse> mockChart = createMockChart(120.0, 125.0, 130.0, 140.0, 152.0);
@@ -139,18 +124,21 @@ class StockTrackingServiceTest {
     @DisplayName("동일 일지에 대해 알림이 1번 발생하면 30분 동안은 중복 알림을 완벽히 차단한다 (쿨다운)")
     void shouldBlockDuplicateAlertWithin30MinutesCooldown() {
         // 1. Given (목표가 도달 일지)
-        Journal journal = Journal.builder()
-                .user(testUser)
-                .stock(testStock)
-                .stayMessage("쿨다운 테스트")
-                .chartRangeType(ChartRangeType.DAY_1)
-                .pricePattern("[100.0, 100.0, 100.0, 100.0, 100.0]")
-                .targetPrice(bd(100.0))
-                .isTracking(true)
-                .build();
-        ReflectionTestUtils.setField(journal, "id", 102L);
+        TrackingTargetDto target = new TrackingTargetDto(
+                102L,
+                1L,
+                "NVDA",
+                bd(105.0),
+                bd(100.0),
+                null,
+                "쿨다운 테스트",
+                ChartRangeType.DAY_1,
+                "[100.0, 100.0, 100.0, 100.0, 100.0]",
+                0.85,
+                true
+        );
 
-        given(journalRepository.findAllActiveTrackingJournals()).willReturn(List.of(journal));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(target));
 
         List<StockChartResponse> mockChart = createMockChart(100.0, 100.0, 100.0, 100.0, 105.0);
         given(stockChartService.getChartData(eq("NVDA"), eq(ChartRangeType.DAY_1), any())).willReturn(mockChart);
@@ -168,62 +156,33 @@ class StockTrackingServiceTest {
     }
 
     @Test
-    @DisplayName("여러 유저의 서로 다른 반도체 종목 4건을 동시에 감시하여 조건 만족 2건만 정확히 추출하고 차트 캐싱을 100% 재사용한다")
+    @DisplayName("여러 유저의 서로 다른 반도체 종목 4건을 동시에 감시하여 조건 만족 2건만 정확히 추출하고 종목별 묶음으로 차트 캐싱을 100% 재사용한다")
     void shouldProcessMultipleJournalsBatchCorrectly() {
-        // 1. Given (준비: NVDA 2건, AMD 1건, TSM 1건)
-        Stock amdStock = createStock(2L, "AMD", "AMD", 145.0);
-        Stock tsmStock = createStock(3L, "TSMC", "TSM", 205.0);
-
         // [일지 1] NVDA 일지 : 99.9% 일치 ➔ 알림 O
-        Journal j1 = Journal.builder()
-                .user(testUser)
-                .stock(testStock)
-                .stayMessage("NVDA 패턴 일치!")
-                .chartRangeType(ChartRangeType.MONTH_3)
-                .pricePattern("[100.0, 95.0, 90.0, 88.0, 94.0]")
-                .isTracking(true)
-                .similarityThreshold(0.85)
-                .build();
-        ReflectionTestUtils.setField(j1, "id", 201L);
+        TrackingTargetDto t1 = new TrackingTargetDto(
+                201L, 1L, "NVDA", bd(128.5), null, null,
+                "NVDA 패턴 일치!", ChartRangeType.MONTH_3, "[100.0, 95.0, 90.0, 88.0, 94.0]", 0.85, true
+        );
 
-        // [일지 2] NVDA 일지 : 목표가 $120 미도달 ➔ 알림 X
-        Journal j2 = Journal.builder()
-                .user(testUser)
-                .stock(testStock)
-                .stayMessage("NVDA 목표가 아직 미도달")
-                .chartRangeType(ChartRangeType.MONTH_3)
-                .targetPrice(bd(120.0))
-                .isTracking(true)
-                .build();
-        ReflectionTestUtils.setField(j2, "id", 202L);
+        // [일지 2] NVDA 일지 : 목표가 $150 미도달 ➔ 알림 X
+        TrackingTargetDto t2 = new TrackingTargetDto(
+                202L, 2L, "NVDA", bd(128.5), bd(150.0), null,
+                "NVDA 목표가 아직 미도달", ChartRangeType.MONTH_3, null, null, false
+        );
 
         // [일지 3] AMD 일지 : 패턴 불일치(하락 vs 상승) ➔ 알림 X
-        Journal j3 = Journal.builder()
-                .user(testUser)
-                .stock(amdStock)
-                .stayMessage("AMD 패턴 불일치")
-                .chartRangeType(ChartRangeType.DAY_1)
-                .pricePattern("[100.0, 110.0, 120.0, 130.0, 140.0]")
-                .isTracking(true)
-                .similarityThreshold(0.85)
-                .build();
-        ReflectionTestUtils.setField(j3, "id", 203L);
+        TrackingTargetDto t3 = new TrackingTargetDto(
+                203L, 3L, "AMD", bd(145.0), null, null,
+                "AMD 패턴 불일치", ChartRangeType.DAY_1, "[100.0, 110.0, 120.0, 130.0, 140.0]", 0.85, true
+        );
 
         // [일지 4] TSM 일지 : 목표가 $200 돌파 ($205) ➔ 알림 O
-        Journal j4 = Journal.builder()
-                .user(testUser)
-                .stock(tsmStock)
-                .stayMessage("TSM 목표가 돌파 익절!")
-                .chartRangeType(ChartRangeType.DAY_1)
-                .pricePattern("[180.0, 185.0, 190.0, 195.0, 205.0]")
-                .targetPrice(bd(200.0))
-                .isTracking(true)
-                .similarityThreshold(0.85)
-                .build();
-        ReflectionTestUtils.setField(j4, "id", 204L);
+        TrackingTargetDto t4 = new TrackingTargetDto(
+                204L, 4L, "TSM", bd(205.0), bd(200.0), null,
+                "TSM 목표가 돌파 익절!", ChartRangeType.DAY_1, "[180.0, 185.0, 190.0, 195.0, 205.0]", 0.85, true
+        );
 
-        given(journalRepository.findAllActiveTrackingJournals())
-                .willReturn(List.of(j1, j2, j3, j4));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(t1, t2, t3, t4));
 
         // Mock 차트 시세 설정 (NVDA 99% 일치, AMD 0% 불일치, TSM $205 돌파)
         given(stockChartService.getChartData(eq("NVDA"), eq(ChartRangeType.MONTH_3), any()))
@@ -241,11 +200,85 @@ class StockTrackingServiceTest {
         assertThat(alerts).extracting(TrackingAlertResult::ticker)
                 .containsExactlyInAnyOrder("NVDA", "TSM");
 
+        // NVDA 일지가 2건이었지만, 종목별 그룹핑에 의해 차트 서비스는 정확히 1번만 호출됨!
         verify(stockChartService, times(1)).getChartData(eq("NVDA"), eq(ChartRangeType.MONTH_3), any());
 
-        log.info("🚀 [반도체 다중 배치 감시 테스트] 감시대상=4건 ➔ 조건만족 알림발송=2건 (NVDA 패턴일치, TSM 목표가돌파), NVDA 차트 API 호출 횟수=1회 (캐시 재사용 100% 성공)");
+        log.info("🚀 [반도체 다중 배치 감시 테스트] 감시대상=4건 ➔ 조건만족 알림발송=2건 (NVDA 패턴일치, TSM 목표가돌파), NVDA 차트 API 호출 횟수=1회 (종목 그룹핑 N+1 제거 성공)");
     }
 
+    @Test
+    @DisplayName("패턴 추적이 없는 순수 목표가/손절가 일지는 차트 API를 0회 호출하고 DB 실시간 현재가로 즉시 알림을 발생시킨다")
+    void shouldTriggerTargetAlertWithoutCallingChartApiWhenNoPatternTracking() {
+        // 1. Given (패턴 추적 없이 목표가 $120, 손절가 $100만 설정된 순수 가격 알림 일지, 현재가 $128.50)
+        TrackingTargetDto pureTarget = new TrackingTargetDto(
+                301L,
+                1L,
+                "NVDA",
+                bd(128.50),
+                bd(120.0),
+                null,
+                "순수 목표가 도달 알림!",
+                null,
+                null,
+                null,
+                true
+        );
+
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(pureTarget));
+
+        // 2. When
+        List<TrackingAlertResult> alerts = stockTrackingService.checkAllActiveTrackingJournals();
+
+        // 3. Then (차트 API는 0회 호출되고, 실시간 현재가 128.50으로 목표가 도달 알림 즉시 발생!)
+        assertThat(alerts).hasSize(1);
+        assertThat(alerts.get(0).isTargetReached()).isTrue();
+        assertThat(alerts.get(0).currentPrice()).isEqualByComparingTo(bd(128.50));
+
+        // 차트 서비스가 전혀 호출되지 않았음을 명확히 검증 (외부 API 호출 0회!)
+        verify(stockChartService, times(0)).getChartData(any(), any(), any());
+
+        log.info("⚡ [차트 미호출 목표가 판정 테스트] 차트 API 호출=0회, 현재가=128.50, 목표가=120.00, 판정성공!");
+    }
+
+    @Test
+    @DisplayName("대량 일지가 존재할 때 No-Offset Keyset 커서로 청크를 연속 분할 조회하여 누락 없이 전수 처리한다")
+    void shouldProcessMultipleChunksUsingKeysetCursorWithoutMissingData() {
+        // 1. Given: 1회차 청크(1,000건 가정, ID=1000까지) + 2회차 청크(마지막 청크, ID=1500까지)
+        TrackingTargetDto chunk1Target = new TrackingTargetDto(
+                1000L, 1L, "NVDA", bd(128.50), bd(120.00), null,
+                "1차 청크 목표가 도달!", null, null, null, true
+        );
+        TrackingTargetDto chunk2Target = new TrackingTargetDto(
+                1500L, 2L, "TSM", bd(205.00), bd(200.00), null,
+                "2차 청크 목표가 도달!", null, null, null, true
+        );
+
+        // 첫 번째 쿼리 (lastJournalId = 0L) -> 1,000건 청크 반환 (CHUNK_SIZE 1000개라고 가정하기 위해 1000개 리스트 모의)
+        List<TrackingTargetDto> firstChunk = new ArrayList<>(Collections.nCopies(StockTrackingService.CHUNK_SIZE - 1,
+                new TrackingTargetDto(1L, 1L, "NVDA", bd(128.50), bd(200.0), null, "미도달", null, null, null, true)));
+        firstChunk.add(chunk1Target); // 마지막에 1000L 추가
+
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any()))
+                .willReturn(firstChunk);
+
+        // 두 번째 쿼리 (lastJournalId = 1000L) -> 다음 1건 청크 반환 (마지막 청크)
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(1000L), any()))
+                .willReturn(List.of(chunk2Target));
+
+        // 2. When (배치 실행)
+        List<TrackingAlertResult> alerts = stockTrackingService.checkAllActiveTrackingJournals();
+
+        // 3. Then (두 청크 모두 누락 없이 처리되어 2건의 목표가 도달 알림 생성 확인)
+        assertThat(alerts).hasSize(2);
+        assertThat(alerts).extracting(TrackingAlertResult::journalId)
+                .containsExactlyInAnyOrder(1000L, 1500L);
+
+        // No-Offset 커서 호출 횟수 검증: 1회차(0L), 2회차(1000L) 총 2회 호출!
+        verify(journalRepository, times(1)).findActiveTrackingTargetsChunk(eq(0L), any());
+        verify(journalRepository, times(1)).findActiveTrackingTargetsChunk(eq(1000L), any());
+
+        log.info("📦 [No-Offset Keyset 청크 분할 처리 테스트] 1차 청크(ID 0~1000) -> 2차 청크(ID 1000~1500) 연속 분할 조회 및 누락 0건 전수 검사 성공!");
+    }
 
     private BigDecimal bd(double val) {
         return BigDecimal.valueOf(val);
@@ -258,19 +291,5 @@ class StockTrackingServiceTest {
             items.add(new StockChartResponse(time, bd(prices[i]), bd(prices[i] + 1.0), bd(prices[i] - 1.0), BigDecimal.ZERO, 1000L));
         }
         return items;
-    }
-
-    private Stock createStock(Long id, String name, String ticker, double price) {
-        Stock stock = Stock.builder()
-                .name(name)
-                .ticker(ticker)
-                .currentPrice(bd(price))
-                .changePrice(bd(1.0))
-                .changeRate(bd(1.0))
-                .volume(1000000L)
-                .marketCap(1000000000000L)
-                .build();
-        ReflectionTestUtils.setField(stock, "id", id);
-        return stock;
     }
 }

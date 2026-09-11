@@ -113,4 +113,73 @@ class JournalServiceTest {
         // ✅ 3. STAY 다짐 메시지가 온전히 보존되었는지 확인
         assertThat(detail.stayMessage()).isEqualTo("절대 뇌동매도 금지! 150달러까지 STAY!");
     }
+
+    @Test
+    @DisplayName("일지 수정 시 isTracking 추적 토글을 false로 끄면 DB에 정상 반영된다")
+    void shouldUpdateTrackingToggleToFalseWhenUpdatingJournal() {
+        // 1. Given: isTracking = true 일지 생성
+        long uniqueTime = System.currentTimeMillis();
+        User user = userRepository.save(User.builder()
+                .email("test-toggle-" + uniqueTime + "@stay.com")
+                .nickname("토글러" + uniqueTime)
+                .authProvider(AuthProvider.GOOGLE)
+                .providerId("google_toggle_" + uniqueTime)
+                .build());
+
+        Stock stock = stockRepository.findByTicker("NVDA")
+                .orElseGet(() -> stockRepository.save(Stock.builder()
+                        .name("엔비디아")
+                        .ticker("NVDA")
+                        .currentPrice(new BigDecimal("128.50"))
+                        .changePrice(new BigDecimal("2.50"))
+                        .changeRate(new BigDecimal("1.98"))
+                        .volume(1000000L)
+                        .marketCap(1000000000000L)
+                        .build()));
+
+        Long journalId = journalService.createJournal(user.getId(), new JournalCreateRequest(
+                stock.getId(),
+                TradeType.BUY,
+                LocalDateTime.now(),
+                CurrencyType.USD,
+                new BigDecimal("128.50"),
+                new BigDecimal("10"),
+                new BigDecimal("1285.00"),
+                new BigDecimal("150.00"),
+                new BigDecimal("120.00"),
+                null,
+                EmotionType.CONFIDENCE,
+                "매매 근거",
+                "STAY!",
+                ChartRangeType.MONTH_3,
+                List.of(new BigDecimal("128.50"), new BigDecimal("126.00"), new BigDecimal("125.00"), new BigDecimal("127.00"), new BigDecimal("129.00")),
+                true,
+                null
+        ));
+
+        // 2. When: isTracking = false 로 수정 요청
+        com.stay.backend.domain.journal.dto.JournalUpdateRequest updateRequest = new com.stay.backend.domain.journal.dto.JournalUpdateRequest(
+                TradeType.BUY,
+                LocalDateTime.now(),
+                CurrencyType.USD,
+                new BigDecimal("128.50"),
+                new BigDecimal("10"),
+                new BigDecimal("1285.00"),
+                new BigDecimal("160.00"),
+                new BigDecimal("115.00"),
+                null,
+                EmotionType.CONFIDENCE,
+                "목표가 상향 및 매매 종료",
+                "STAY 완료!",
+                true,
+                false // 👈 추적 토글 OFF!
+        );
+
+        journalService.updateJournal(journalId, user.getId(), updateRequest);
+
+        // 3. Then: getJournalDetail 조회 시 isTracking이 false로 갱신되었는지 확인
+        JournalDetailResponse detail = journalService.getJournalDetail(journalId, user.getId());
+        assertThat(detail.isTracking()).isFalse();
+        assertThat(detail.targetPrice()).isEqualByComparingTo("160.00");
+    }
 }

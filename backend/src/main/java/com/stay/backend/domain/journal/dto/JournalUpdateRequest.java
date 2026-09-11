@@ -65,5 +65,8 @@ public record JournalUpdateRequest(
 
         @Schema(description = "피드 공개 여부", example = "true")
         @NotNull(message = "공개 여부는 필수입니다.")
-        Boolean isPublic
+        Boolean isPublic,
+
+        @Schema(description = "주가 흐름 및 목표가 추적 활성화 여부 (토글 ON/OFF, null인 경우 기존 상태 유지)", example = "true")
+        Boolean isTracking
 ) {}

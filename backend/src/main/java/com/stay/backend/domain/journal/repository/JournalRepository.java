@@ -30,9 +30,31 @@ public interface JournalRepository extends JpaRepository<Journal, Long> {
     @Query("SELECT j FROM Journal j JOIN FETCH j.stock WHERE j.isPublic = true AND j.stayMessage IS NOT NULL ORDER BY j.createdAt DESC")
     List<Journal> findTopRecommendedCommitments(Pageable pageable);
 
-    // 패턴 추적 활성화(isTracking = true)된 전체 일지 조회 (작성자 및 종목 정보 Fetch Join)
-    @Query("SELECT j FROM Journal j JOIN FETCH j.user JOIN FETCH j.stock WHERE j.isTracking = true AND j.pricePattern IS NOT NULL")
+    // 추적 활성화(isTracking = true)된 일지 중 목표가/손절가 또는 패턴이 설정된 전체 일지 조회 (작성자 및 종목 정보 Fetch Join)
+    @Query("SELECT j FROM Journal j JOIN FETCH j.user JOIN FETCH j.stock WHERE j.isTracking = true AND (j.pricePattern IS NOT NULL OR j.targetPrice IS NOT NULL OR j.stopLossPrice IS NOT NULL)")
     List<Journal> findAllActiveTrackingJournals();
+
+    // 스케줄러 배치 전용 경량 DTO 프로젝션 조회 (엔티티 Over-fetching 방지 및 토글 마스터 제어)
+    @Query("SELECT new com.stay.backend.domain.stock.dto.TrackingTargetDto(" +
+            "j.id, j.user.id, s.ticker, s.currentPrice, j.targetPrice, j.stopLossPrice, " +
+            "j.stayMessage, j.chartRangeType, j.pricePattern, j.similarityThreshold, j.isTracking) " +
+            "FROM Journal j JOIN j.stock s " +
+            "WHERE j.isTracking = true AND (j.pricePattern IS NOT NULL OR j.targetPrice IS NOT NULL OR j.stopLossPrice IS NOT NULL)")
+    List<com.stay.backend.domain.stock.dto.TrackingTargetDto> findActiveTrackingTargets();
+
+    // [No-Offset Keyset 커서 청크 페이징] 슬로우 쿼리(OFFSET) 원천 차단 및 OOM 방어
+    @Query("SELECT new com.stay.backend.domain.stock.dto.TrackingTargetDto(" +
+            "j.id, j.user.id, s.ticker, s.currentPrice, j.targetPrice, j.stopLossPrice, " +
+            "j.stayMessage, j.chartRangeType, j.pricePattern, j.similarityThreshold, j.isTracking) " +
+            "FROM Journal j JOIN j.stock s " +
+            "WHERE j.id > :lastJournalId AND j.isTracking = true " +
+            "AND (j.pricePattern IS NOT NULL OR j.targetPrice IS NOT NULL OR j.stopLossPrice IS NOT NULL) " +
+            "ORDER BY j.id ASC")
+    List<com.stay.backend.domain.stock.dto.TrackingTargetDto> findActiveTrackingTargetsChunk(
+            @Param("lastJournalId") Long lastJournalId,
+            Pageable pageable
+    );
+
 
     // 특정 유저의 특정 종목 일지 목록 조회 (차트 타임라인 마커용, 시간순 정렬)
     @Query("SELECT j FROM Journal j WHERE j.user.id = :userId AND j.stock.ticker = :ticker ORDER BY j.tradeDateTime ASC")

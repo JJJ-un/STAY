@@ -35,6 +35,7 @@ public class JournalService {
     private final JournalChecklistRepository journalChecklistRepository;
     private final UserRepository userRepository;
     private final StockRepository stockRepository;
+    private final com.stay.backend.domain.stock.service.StockTrackingService stockTrackingService;
 
     // 1. 주식일지 작성
     @Transactional
@@ -139,6 +140,8 @@ public class JournalService {
         // 작성자 본인 검증
         validateJournalAuthor(journal, currentUserId);
 
+        Boolean updatedIsTracking = request.isTracking() != null ? request.isTracking() : journal.getIsTracking();
+
         journal.updateJournal(
                 request.tradeType(),
                 request.tradeDateTime(),
@@ -152,11 +155,16 @@ public class JournalService {
                 request.emotion(),
                 request.reasonMemo(),
                 request.stayMessage(),
-                journal.getIsTracking(),
+                updatedIsTracking,
                 request.isPublic()
         );
 
-        log.info("주식일지 수정 완료: journalId={}, userId={}", journalId, currentUserId);
+        // 추적 토글을 끈 경우 인메모리 패턴 캐시 즉시 무효화 (메모리 누수 방지)
+        if (Boolean.FALSE.equals(updatedIsTracking)) {
+            stockTrackingService.invalidatePatternCache(journalId);
+        }
+
+        log.info("주식일지 수정 완료: journalId={}, userId={}, isTracking={}", journalId, currentUserId, updatedIsTracking);
     }
 
     // 5. 주식일지 삭제 (Soft Delete)
@@ -167,6 +175,9 @@ public class JournalService {
 
         // 작성자 본인 검증
         validateJournalAuthor(journal, currentUserId);
+
+        // 일지 삭제 시 패턴 캐시 무효화
+        stockTrackingService.invalidatePatternCache(journalId);
 
         journalRepository.delete(journal);
 
