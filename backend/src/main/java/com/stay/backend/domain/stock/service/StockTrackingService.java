@@ -1,11 +1,11 @@
 package com.stay.backend.domain.stock.service;
 
-import com.stay.backend.domain.journal.entity.Journal;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.stay.backend.domain.journal.repository.JournalRepository;
 import com.stay.backend.domain.stock.dto.StockChartResponse;
+import com.stay.backend.domain.stock.dto.TrackingTargetDto;
 import com.stay.backend.domain.stock.entity.ChartRangeType;
-import com.stay.backend.global.common.exception.CustomException;
-import com.stay.backend.global.common.exception.ErrorCode;
 import com.stay.backend.global.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,15 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * 실시간 주가 흐름 패턴 감시 및 다짐/목표가 알림 트리거 서비스
- * - 목표가/손절가 감시: 차트 API 호출 없이 DB 실시간 현재가로 0.001초 판정
- * - 주가 패턴 감시: Caffeine 중앙 캐시 연동으로 외부 증권사 API 중복 호출 차단
+ * - JPA Over-fetching 차단: 경량 TrackingTargetDto 프로젝션으로 필요한 필드만 직접 인출
+ * - JSON 파싱 메모이제이션: Caffeine In-Memory Cache로 반복 역직렬화 CPU 부하 및 Minor GC 완벽 방어
+ * - 종목(Ticker) 기준 그룹핑 & 병렬 파이프라인: N+1 중복 차트 조회 제거 및 멀티코어 100% 활용
  */
 @Slf4j
 @Service
@@ -38,6 +38,13 @@ public class StockTrackingService {
     // 중복 알림 폭탄 방지용 쿨다운 맵 (일지 ID -> 마지막 알림 발송 시각, 쿨다운: 30분)
     private final Map<Long, Instant> alertCooldownMap = new ConcurrentHashMap<>();
     private static final Duration ALERT_COOLDOWN_DURATION = Duration.ofMinutes(30);
+
+    // 과거 패턴 JSON 역직렬화 결과 인메모리 메모이제이션 캐시 (일지 ID -> 파싱된 캔들 종가 리스트)
+    // - 매 분마다 Jackson 파서를 반복 호출하는 CPU 부하 및 Minor GC 단기 객체 양산 원천 방어 (LRU 10,000건, TTL 24시간)
+    private final Cache<Long, List<BigDecimal>> patternCache = Caffeine.newBuilder()
+            .maximumSize(10_000)
+            .expireAfterWrite(Duration.ofHours(24))
+            .build();
 
     /**
      * 알림 판정 결과 DTO (내부 도메인용)
@@ -58,71 +65,110 @@ public class StockTrackingService {
 
     /**
      * 전체 추적 활성화 일지들을 실시간으로 감시하고 알림 대상 목록 반환
-     * (순수 목표가/손절가 일지는 차트 API 호출 없이 즉시 처리, 패턴 일지는 Caffeine 캐시 활용)
+     * (종목별 그룹핑 및 멀티코어 병렬 파이프라인 적용)
      */
     public List<TrackingAlertResult> checkAllActiveTrackingJournals() {
-        List<Journal> activeJournals = journalRepository.findAllActiveTrackingJournals();
-        if (activeJournals.isEmpty()) {
+        // 1. [Over-fetching 방지] 경량 DTO 프로젝션 조회
+        List<TrackingTargetDto> activeTargets = journalRepository.findActiveTrackingTargets();
+        if (activeTargets == null || activeTargets.isEmpty()) {
             return Collections.emptyList();
         }
 
-        log.info("추적 활성 일지 감시 시작: 총 {}건", activeJournals.size());
+        log.info("추적 활성 일지 감시 시작: 총 {}건", activeTargets.size());
 
-        // 동일 회차 내 종목별 최신 가격 일관성 유지용 맵
-        Map<String, BigDecimal> latestPriceMap = new ConcurrentHashMap<>();
+        // 2. [종목별 그룹핑] 상위 종목(Ticker) 단위로 일지들을 묶어 N+1 중복 조회 제거
+        Map<String, List<TrackingTargetDto>> targetsByTicker = activeTargets.stream()
+                .collect(Collectors.groupingBy(TrackingTargetDto::ticker));
 
-        return activeJournals.stream()
-                .map(journal -> evaluateJournal(journal, latestPriceMap))
+        // 3. [멀티코어 병렬 스트림] 종목 그룹 단위로 멀티코어 분산 병렬 처리
+        return targetsByTicker.entrySet().parallelStream()
+                .flatMap(entry -> evaluateTickerTargets(entry.getKey(), entry.getValue()).stream())
                 .filter(result -> result != null && (result.isPatternMatched() || result.isTargetReached() || result.isStopLossReached()))
                 .filter(this::isNotCoolingDown) // 중복 알림 쿨다운 체크
                 .toList();
     }
 
     /**
-     * 단일 일지에 대한 목표가/손절가 및 주가 흐름 패턴 도달 여부 평가
+     * 동일 종목에 속한 일지 그룹을 1번의 차트 캐시 조회로 일괄 평가
      */
-    private TrackingAlertResult evaluateJournal(Journal journal, Map<String, BigDecimal> latestPriceMap) {
-        if (journal == null) {
-            return null;
+    private List<TrackingAlertResult> evaluateTickerTargets(String ticker, List<TrackingTargetDto> targets) {
+        if (targets == null || targets.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        String ticker = journal.getStock().getTicker();
-        boolean hasPatternTracking = Boolean.TRUE.equals(journal.getIsTracking()) && journal.getPricePattern() != null;
-        boolean hasTargetOrStopLoss = journal.getTargetPrice() != null || journal.getStopLossPrice() != null;
+        // 해당 종목의 기본 현재가 (첫 번째 DTO의 DB 현재가 기준)
+        BigDecimal defaultCurrentPrice = targets.get(0).stockCurrentPrice();
 
-        // 패턴 추적도 없고 목표가/손절가도 없으면 검사 대상 아님
+        // 패턴 추적 일지들이 요구하는 ChartRangeType별 최신 캔들 캐시 맵 (차트 조회 중복 1회로 압축)
+        Map<ChartRangeType, List<BigDecimal>> chartDataByRange = new EnumMap<>(ChartRangeType.class);
+
+        for (TrackingTargetDto target : targets) {
+            boolean hasPattern = Boolean.TRUE.equals(target.isTracking()) && target.pricePattern() != null;
+            if (hasPattern) {
+                ChartRangeType rangeType = target.chartRangeType() != null ? target.chartRangeType() : ChartRangeType.MONTH_3;
+                chartDataByRange.computeIfAbsent(rangeType, r -> {
+                    List<StockChartResponse> chartData = stockChartService.getChartData(ticker, r, null);
+                    if (chartData != null && !chartData.isEmpty()) {
+                        return chartData.stream()
+                                .map(StockChartResponse::price)
+                                .toList();
+                    }
+                    return Collections.emptyList();
+                });
+            }
+        }
+
+        // 차트가 존재하면 해당 기간의 가장 최신 종가를 최신 현재가로 채택
+        BigDecimal resolvedCurrentPrice = defaultCurrentPrice;
+        for (List<BigDecimal> candles : chartDataByRange.values()) {
+            if (candles != null && !candles.isEmpty()) {
+                resolvedCurrentPrice = candles.get(candles.size() - 1);
+                break;
+            }
+        }
+
+        BigDecimal finalPrice = resolvedCurrentPrice;
+        List<TrackingAlertResult> results = new ArrayList<>(targets.size());
+
+        for (TrackingTargetDto target : targets) {
+            TrackingAlertResult result = evaluateSingleTarget(target, finalPrice, chartDataByRange);
+            if (result != null) {
+                results.add(result);
+            }
+        }
+
+        return results;
+    }
+
+    /**
+     * 단일 일지 DTO 평가 (메모이제이션 패턴 캐시 및 목표가 판정)
+     */
+    private TrackingAlertResult evaluateSingleTarget(
+            TrackingTargetDto target,
+            BigDecimal currentPrice,
+            Map<ChartRangeType, List<BigDecimal>> chartDataByRange
+    ) {
+        boolean hasPatternTracking = Boolean.TRUE.equals(target.isTracking()) && target.pricePattern() != null;
+        boolean hasTargetOrStopLoss = target.targetPrice() != null || target.stopLossPrice() != null;
+
         if (!hasPatternTracking && !hasTargetOrStopLoss) {
             return null;
         }
 
         double similarity = 0.0;
         boolean isPatternMatched = false;
-        BigDecimal currentPrice = latestPriceMap != null && latestPriceMap.containsKey(ticker)
-                ? latestPriceMap.get(ticker)
-                : journal.getStock().getCurrentPrice();
 
-        // 1. [패턴 추적 활성화 일지]: Caffeine 중앙 캐시에서 캔들 조회 후 코사인 유사도 연산
+        // 1. [패턴 추적 판정]: In-Memory 메모이제이션 캐시 활용 (매 분 Jackson 파싱 방어)
         if (hasPatternTracking) {
-            List<BigDecimal> targetPattern = JsonUtil.parsePricePattern(journal.getPricePattern());
-            if (!targetPattern.isEmpty()) {
-                ChartRangeType rangeType = journal.getChartRangeType() != null ? journal.getChartRangeType() : ChartRangeType.MONTH_3;
+            List<BigDecimal> targetPattern = patternCache.get(target.journalId(), id -> JsonUtil.parsePricePattern(target.pricePattern()));
+            if (targetPattern != null && !targetPattern.isEmpty()) {
+                ChartRangeType rangeType = target.chartRangeType() != null ? target.chartRangeType() : ChartRangeType.MONTH_3;
+                List<BigDecimal> currentCandles = chartDataByRange.get(rangeType);
 
-                // stockChartService는 @Cacheable로 캐싱되어 있어 외부 API를 매번 부르지 않고 중앙 캐시에서 0ms 반환
-                List<StockChartResponse> chartData = stockChartService.getChartData(ticker, rangeType, null);
-                if (chartData != null && !chartData.isEmpty()) {
-                    List<BigDecimal> currentCandles = chartData.stream()
-                            .map(StockChartResponse::price)
-                            .toList();
-
+                if (currentCandles != null && !currentCandles.isEmpty()) {
                     similarity = patternMatchingEngine.calculateSimilarity(targetPattern, currentCandles);
-                    double threshold = journal.getSimilarityThreshold() != null ? journal.getSimilarityThreshold() : 0.85;
+                    double threshold = target.similarityThreshold() != null ? target.similarityThreshold() : 0.85;
                     isPatternMatched = (similarity >= threshold);
-
-                    // 차트가 존재하면 해당 기간의 가장 최신 종가를 currentPrice로 채택 및 맵 동기화
-                    currentPrice = currentCandles.get(currentCandles.size() - 1);
-                    if (latestPriceMap != null) {
-                        latestPriceMap.put(ticker, currentPrice);
-                    }
                 }
             }
         }
@@ -132,10 +178,10 @@ public class StockTrackingService {
         boolean isStopLossReached = false;
 
         if (currentPrice != null) {
-            if (journal.getTargetPrice() != null && currentPrice.compareTo(journal.getTargetPrice()) >= 0) {
+            if (target.targetPrice() != null && currentPrice.compareTo(target.targetPrice()) >= 0) {
                 isTargetReached = true;
             }
-            if (journal.getStopLossPrice() != null && currentPrice.compareTo(journal.getStopLossPrice()) <= 0) {
+            if (target.stopLossPrice() != null && currentPrice.compareTo(target.stopLossPrice()) <= 0) {
                 isStopLossReached = true;
             }
         }
@@ -143,49 +189,52 @@ public class StockTrackingService {
         // 3. 알림 발생 조건에 하나라도 부합하는지 확인
         if (isPatternMatched || isTargetReached || isStopLossReached) {
             log.info("[추적 알림 감지] journalId={}, ticker={}, similarity={}% (패턴일치={}), 현재가={}, 목표가={}, 손절가={}",
-                    journal.getId(), ticker, String.format("%.2f", similarity * 100),
-                    isPatternMatched, currentPrice, journal.getTargetPrice(), journal.getStopLossPrice());
+                    target.journalId(), target.ticker(), String.format("%.2f", similarity * 100),
+                    isPatternMatched, currentPrice, target.targetPrice(), target.stopLossPrice());
         }
 
         return new TrackingAlertResult(
-                journal.getId(),
-                journal.getUser().getId(),
-                ticker,
-                journal.getStayMessage(),
+                target.journalId(),
+                target.userId(),
+                target.ticker(),
+                target.stayMessage(),
                 similarity,
                 isPatternMatched,
                 isTargetReached,
                 isStopLossReached,
                 currentPrice,
-                journal.getTargetPrice(),
-                journal.getStopLossPrice()
+                target.targetPrice(),
+                target.stopLossPrice()
         );
     }
 
     /**
-     * 단건 일지 ID로 실시간 추적 상태 분석 (수동 확인용)
+     * 일지 수정/삭제 시 패턴 캐시 무효화 (데이터 일관성 보장)
      */
-    public TrackingAlertResult checkSingleJournal(Long journalId) {
-        Journal journal = journalRepository.findById(journalId)
-                .orElseThrow(() -> new CustomException(ErrorCode.JOURNAL_NOT_FOUND));
-
-        return evaluateJournal(journal, null);
+    public void invalidatePatternCache(Long journalId) {
+        if (journalId != null) {
+            patternCache.invalidate(journalId);
+        }
     }
 
     /**
-     * 동일 일지 중복 알림 쿨다운 검사 (30분 이내 재발송 차단)
+     * 중복 알림 방지 쿨다운 검사
      */
     private boolean isNotCoolingDown(TrackingAlertResult result) {
-        Instant now = Instant.now();
-        Instant lastAlert = alertCooldownMap.get(result.journalId());
-
-        if (lastAlert == null || Duration.between(lastAlert, now).compareTo(ALERT_COOLDOWN_DURATION) >= 0) {
-            alertCooldownMap.put(result.journalId(), now);
-            return true;
+        if (result == null || result.journalId() == null) {
+            return false;
         }
 
-        log.debug("중복 알림 쿨다운 차단: journalId={}, 경과시간={}분",
-                result.journalId(), Duration.between(lastAlert, now).toMinutes());
-        return false;
+        Instant now = Instant.now();
+        Instant lastSent = alertCooldownMap.get(result.journalId());
+
+        if (lastSent != null && Duration.between(lastSent, now).compareTo(ALERT_COOLDOWN_DURATION) < 0) {
+            log.debug("알림 쿨다운 중으로 발송 스킵: journalId={}, 경과={}초",
+                    result.journalId(), Duration.between(lastSent, now).toSeconds());
+            return false;
+        }
+
+        alertCooldownMap.put(result.journalId(), now);
+        return true;
     }
 }

@@ -34,6 +34,15 @@ public interface JournalRepository extends JpaRepository<Journal, Long> {
     @Query("SELECT j FROM Journal j JOIN FETCH j.user JOIN FETCH j.stock WHERE (j.isTracking = true AND j.pricePattern IS NOT NULL) OR j.targetPrice IS NOT NULL OR j.stopLossPrice IS NOT NULL")
     List<Journal> findAllActiveTrackingJournals();
 
+    // 스케줄러 배치 전용 경량 DTO 프로젝션 조회 (엔티티 Over-fetching 방지 및 DB I/O 극대화)
+    @Query("SELECT new com.stay.backend.domain.stock.dto.TrackingTargetDto(" +
+            "j.id, j.user.id, s.ticker, s.currentPrice, j.targetPrice, j.stopLossPrice, " +
+            "j.stayMessage, j.chartRangeType, j.pricePattern, j.similarityThreshold, j.isTracking) " +
+            "FROM Journal j JOIN j.stock s " +
+            "WHERE (j.isTracking = true AND j.pricePattern IS NOT NULL) OR j.targetPrice IS NOT NULL OR j.stopLossPrice IS NOT NULL")
+    List<com.stay.backend.domain.stock.dto.TrackingTargetDto> findActiveTrackingTargets();
+
+
     // 특정 유저의 특정 종목 일지 목록 조회 (차트 타임라인 마커용, 시간순 정렬)
     @Query("SELECT j FROM Journal j WHERE j.user.id = :userId AND j.stock.ticker = :ticker ORDER BY j.tradeDateTime ASC")
     List<Journal> findByUserIdAndStockTickerOrderByTradeDateTimeAsc(
