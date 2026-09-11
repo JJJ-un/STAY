@@ -30,8 +30,8 @@ public interface JournalRepository extends JpaRepository<Journal, Long> {
     @Query("SELECT j FROM Journal j JOIN FETCH j.stock WHERE j.isPublic = true AND j.stayMessage IS NOT NULL ORDER BY j.createdAt DESC")
     List<Journal> findTopRecommendedCommitments(Pageable pageable);
 
-    // 패턴 추적 활성화(isTracking = true)된 전체 일지 조회 (작성자 및 종목 정보 Fetch Join)
-    @Query("SELECT j FROM Journal j JOIN FETCH j.user JOIN FETCH j.stock WHERE j.isTracking = true AND j.pricePattern IS NOT NULL")
+    // 패턴 추적 활성화(isTracking = true) 또는 목표가/손절가 설정된 전체 일지 조회 (작성자 및 종목 정보 Fetch Join)
+    @Query("SELECT j FROM Journal j JOIN FETCH j.user JOIN FETCH j.stock WHERE (j.isTracking = true AND j.pricePattern IS NOT NULL) OR j.targetPrice IS NOT NULL OR j.stopLossPrice IS NOT NULL")
     List<Journal> findAllActiveTrackingJournals();
 
     // 특정 유저의 특정 종목 일지 목록 조회 (차트 타임라인 마커용, 시간순 정렬)

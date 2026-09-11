@@ -16,13 +16,14 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 실시간 주가 흐름 패턴 감시 및 다짐/목표가 알림 트리거 서비스
+ * - 목표가/손절가 감시: 차트 API 호출 없이 DB 실시간 현재가로 0.001초 판정
+ * - 주가 패턴 감시: Caffeine 중앙 캐시 연동으로 외부 증권사 API 중복 호출 차단
  */
 @Slf4j
 @Service
@@ -37,9 +38,6 @@ public class StockTrackingService {
     // 중복 알림 폭탄 방지용 쿨다운 맵 (일지 ID -> 마지막 알림 발송 시각, 쿨다운: 30분)
     private final Map<Long, Instant> alertCooldownMap = new ConcurrentHashMap<>();
     private static final Duration ALERT_COOLDOWN_DURATION = Duration.ofMinutes(30);
-
-    // 차트 1회 조회 최적화용 캐시 키 (종목 티커 + 차트 탭)
-    private record ChartKey(String ticker, ChartRangeType rangeType) {}
 
     /**
      * 알림 판정 결과 DTO (내부 도메인용)
@@ -60,7 +58,7 @@ public class StockTrackingService {
 
     /**
      * 전체 추적 활성화 일지들을 실시간으로 감시하고 알림 대상 목록 반환
-     * (성능 최적화: 동일 종목/탭 차트 데이터는 1회만 조회하여 재사용)
+     * (순수 목표가/손절가 일지는 차트 API 호출 없이 즉시 처리, 패턴 일지는 Caffeine 캐시 활용)
      */
     public List<TrackingAlertResult> checkAllActiveTrackingJournals() {
         List<Journal> activeJournals = journalRepository.findAllActiveTrackingJournals();
@@ -70,115 +68,89 @@ public class StockTrackingService {
 
         log.info("추적 활성 일지 감시 시작: 총 {}건", activeJournals.size());
 
-        // (종목 + 탭)별 차트 1회 조회 캐시 맵 (한투 API 중복 호출 98% 절감)
-        Map<ChartKey, List<BigDecimal>> chartCache = new HashMap<>();
+        // 동일 회차 내 종목별 최신 가격 일관성 유지용 맵
+        Map<String, BigDecimal> latestPriceMap = new ConcurrentHashMap<>();
 
         return activeJournals.stream()
-                .map(journal -> evaluateWithCache(journal, chartCache))
+                .map(journal -> evaluateJournal(journal, latestPriceMap))
                 .filter(result -> result != null && (result.isPatternMatched() || result.isTargetReached() || result.isStopLossReached()))
                 .filter(this::isNotCoolingDown) // 중복 알림 쿨다운 체크
                 .toList();
     }
 
     /**
-     * 캐시를 활용한 일지 패턴 및 목표가 도달 판정
+     * 단일 일지에 대한 목표가/손절가 및 주가 흐름 패턴 도달 여부 평가
      */
-    private TrackingAlertResult evaluateWithCache(Journal journal, Map<ChartKey, List<BigDecimal>> chartCache) {
-        if (journal == null || Boolean.FALSE.equals(journal.getIsTracking()) || journal.getPricePattern() == null) {
-            return null;
-        }
-
-        List<BigDecimal> targetPattern = JsonUtil.parsePricePattern(journal.getPricePattern());
-        if (targetPattern.isEmpty()) {
+    private TrackingAlertResult evaluateJournal(Journal journal, Map<String, BigDecimal> latestPriceMap) {
+        if (journal == null) {
             return null;
         }
 
         String ticker = journal.getStock().getTicker();
-        ChartRangeType rangeType = journal.getChartRangeType();
-        ChartKey chartKey = new ChartKey(ticker, rangeType);
+        boolean hasPatternTracking = Boolean.TRUE.equals(journal.getIsTracking()) && journal.getPricePattern() != null;
+        boolean hasTargetOrStopLoss = journal.getTargetPrice() != null || journal.getStopLossPrice() != null;
 
-        // 캐시에 없으면 한투 API 1회 조회 후 캐싱, 있으면 캐시 데이터 즉시 재사용!
-        List<BigDecimal> currentCandles = chartCache.computeIfAbsent(chartKey, key -> {
-            try {
-                List<StockChartResponse> chartData = stockChartService.getChartData(key.ticker(), key.rangeType(), null);
-                if (chartData == null || chartData.isEmpty()) {
-                    return Collections.emptyList();
+        // 패턴 추적도 없고 목표가/손절가도 없으면 검사 대상 아님
+        if (!hasPatternTracking && !hasTargetOrStopLoss) {
+            return null;
+        }
+
+        double similarity = 0.0;
+        boolean isPatternMatched = false;
+        BigDecimal currentPrice = latestPriceMap != null && latestPriceMap.containsKey(ticker)
+                ? latestPriceMap.get(ticker)
+                : journal.getStock().getCurrentPrice();
+
+        // 1. [패턴 추적 활성화 일지]: Caffeine 중앙 캐시에서 캔들 조회 후 코사인 유사도 연산
+        if (hasPatternTracking) {
+            List<BigDecimal> targetPattern = JsonUtil.parsePricePattern(journal.getPricePattern());
+            if (!targetPattern.isEmpty()) {
+                ChartRangeType rangeType = journal.getChartRangeType() != null ? journal.getChartRangeType() : ChartRangeType.MONTH_3;
+
+                // stockChartService는 @Cacheable로 캐싱되어 있어 외부 API를 매번 부르지 않고 중앙 캐시에서 0ms 반환
+                List<StockChartResponse> chartData = stockChartService.getChartData(ticker, rangeType, null);
+                if (chartData != null && !chartData.isEmpty()) {
+                    List<BigDecimal> currentCandles = chartData.stream()
+                            .map(StockChartResponse::price)
+                            .toList();
+
+                    similarity = patternMatchingEngine.calculateSimilarity(targetPattern, currentCandles);
+                    double threshold = journal.getSimilarityThreshold() != null ? journal.getSimilarityThreshold() : 0.85;
+                    isPatternMatched = (similarity >= threshold);
+
+                    // 차트가 존재하면 해당 기간의 가장 최신 종가를 currentPrice로 채택 및 맵 동기화
+                    currentPrice = currentCandles.get(currentCandles.size() - 1);
+                    if (latestPriceMap != null) {
+                        latestPriceMap.put(ticker, currentPrice);
+                    }
                 }
-                return chartData.stream().map(StockChartResponse::price).toList();
-            } catch (Exception e) {
-                log.warn("차트 시세 조회 실패: ticker={}, range={}, error={}", key.ticker(), key.rangeType(), e.getMessage());
-                return Collections.emptyList();
             }
-        });
-
-        if (currentCandles.isEmpty()) {
-            return null;
         }
 
-        return evaluateMatching(journal, targetPattern, currentCandles);
-    }
+        // 2. [목표가 / 손절가 도달 판정]: 실시간 현재가와 직접 비교 (차트 API 불필요)
+        boolean isTargetReached = false;
+        boolean isStopLossReached = false;
 
-    /**
-     * 단건 일지 ID로 실시간 추적 상태 분석 (수동 확인용)
-     */
-    public TrackingAlertResult checkSingleJournal(Long journalId) {
-        Journal journal = journalRepository.findById(journalId)
-                .orElseThrow(() -> new CustomException(ErrorCode.JOURNAL_NOT_FOUND));
-
-        if (Boolean.FALSE.equals(journal.getIsTracking()) || journal.getPricePattern() == null) {
-            return null;
+        if (currentPrice != null) {
+            if (journal.getTargetPrice() != null && currentPrice.compareTo(journal.getTargetPrice()) >= 0) {
+                isTargetReached = true;
+            }
+            if (journal.getStopLossPrice() != null && currentPrice.compareTo(journal.getStopLossPrice()) <= 0) {
+                isStopLossReached = true;
+            }
         }
 
-        List<BigDecimal> targetPattern = JsonUtil.parsePricePattern(journal.getPricePattern());
-        if (targetPattern.isEmpty()) {
-            return null;
-        }
-
-        List<StockChartResponse> chartData = stockChartService.getChartData(
-                journal.getStock().getTicker(),
-                journal.getChartRangeType(),
-                null
-        );
-
-        if (chartData == null || chartData.isEmpty()) {
-            return null;
-        }
-
-        List<BigDecimal> currentCandles = chartData.stream()
-                .map(StockChartResponse::price)
-                .toList();
-
-        return evaluateMatching(journal, targetPattern, currentCandles);
-    }
-
-    /**
-     * 순수 패턴 유사도 및 목표가/손절가 매칭 연산
-     */
-    private TrackingAlertResult evaluateMatching(Journal journal, List<BigDecimal> targetPattern, List<BigDecimal> currentCandles) {
-        // 1. 누적 등락률 기반 코사인 유사도 연산
-        double similarity = patternMatchingEngine.calculateSimilarity(targetPattern, currentCandles);
-
-        // 2. 최신 현재가 확인 (차트의 마지막 캔들 종가)
-        BigDecimal currentPrice = currentCandles.get(currentCandles.size() - 1);
-
-        // 3. 패턴 일치 판정 (기본 임계치: 0.85 = 85%)
-        double threshold = journal.getSimilarityThreshold() != null ? journal.getSimilarityThreshold() : 0.85;
-        boolean isPatternMatched = (similarity >= threshold);
-
-        // 4. 목표가 / 손절가 도달 판정
-        boolean isTargetReached = (journal.getTargetPrice() != null && currentPrice.compareTo(journal.getTargetPrice()) >= 0);
-        boolean isStopLossReached = (journal.getStopLossPrice() != null && currentPrice.compareTo(journal.getStopLossPrice()) <= 0);
-
+        // 3. 알림 발생 조건에 하나라도 부합하는지 확인
         if (isPatternMatched || isTargetReached || isStopLossReached) {
-            log.info("[추적 알림 감지] journalId={}, ticker={}, similarity={}% (임계치: {}%), 현재가={}, 목표가={}, 손절가={}",
-                    journal.getId(), journal.getStock().getTicker(), String.format("%.2f", similarity * 100),
-                    threshold * 100, currentPrice, journal.getTargetPrice(), journal.getStopLossPrice());
+            log.info("[추적 알림 감지] journalId={}, ticker={}, similarity={}% (패턴일치={}), 현재가={}, 목표가={}, 손절가={}",
+                    journal.getId(), ticker, String.format("%.2f", similarity * 100),
+                    isPatternMatched, currentPrice, journal.getTargetPrice(), journal.getStopLossPrice());
         }
 
         return new TrackingAlertResult(
                 journal.getId(),
                 journal.getUser().getId(),
-                journal.getStock().getTicker(),
+                ticker,
                 journal.getStayMessage(),
                 similarity,
                 isPatternMatched,
@@ -188,6 +160,16 @@ public class StockTrackingService {
                 journal.getTargetPrice(),
                 journal.getStopLossPrice()
         );
+    }
+
+    /**
+     * 단건 일지 ID로 실시간 추적 상태 분석 (수동 확인용)
+     */
+    public TrackingAlertResult checkSingleJournal(Long journalId) {
+        Journal journal = journalRepository.findById(journalId)
+                .orElseThrow(() -> new CustomException(ErrorCode.JOURNAL_NOT_FOUND));
+
+        return evaluateJournal(journal, null);
     }
 
     /**

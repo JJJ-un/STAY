@@ -246,6 +246,38 @@ class StockTrackingServiceTest {
         log.info("🚀 [반도체 다중 배치 감시 테스트] 감시대상=4건 ➔ 조건만족 알림발송=2건 (NVDA 패턴일치, TSM 목표가돌파), NVDA 차트 API 호출 횟수=1회 (캐시 재사용 100% 성공)");
     }
 
+    @Test
+    @DisplayName("패턴 추적이 없는 순수 목표가/손절가 일지는 차트 API를 0회 호출하고 DB 실시간 현재가로 즉시 알림을 발생시킨다")
+    void shouldTriggerTargetAlertWithoutCallingChartApiWhenNoPatternTracking() {
+        // 1. Given (패턴 추적 없이 목표가 $120, 손절가 $100만 설정된 순수 가격 알림 일지)
+        // testStock의 현재가는 $128.50 -> 목표가 $120 도달!
+        Journal pureTargetJournal = Journal.builder()
+                .user(testUser)
+                .stock(testStock)
+                .stayMessage("순수 목표가 도달 알림!")
+                .targetPrice(bd(120.0))
+                .isTracking(false) // 패턴 추적 OFF
+                .pricePattern(null)
+                .build();
+        ReflectionTestUtils.setField(pureTargetJournal, "id", 301L);
+
+        given(journalRepository.findAllActiveTrackingJournals())
+                .willReturn(List.of(pureTargetJournal));
+
+        // 2. When
+        List<TrackingAlertResult> alerts = stockTrackingService.checkAllActiveTrackingJournals();
+
+        // 3. Then (차트 API는 0회 호출되고, 실시간 현재가 128.50으로 목표가 도달 알림 즉시 발생!)
+        assertThat(alerts).hasSize(1);
+        assertThat(alerts.get(0).isTargetReached()).isTrue();
+        assertThat(alerts.get(0).currentPrice()).isEqualByComparingTo(bd(128.50));
+
+        // 차트 서비스가 전혀 호출되지 않았음을 명확히 검증 (외부 API 호출 0회!)
+        verify(stockChartService, times(0)).getChartData(any(), any(), any());
+
+        log.info("⚡ [차트 미호출 목표가 판정 테스트] 차트 API 호출={0}회, 현재가={128.50}, 목표가={120.00}, 판정성공!");
+    }
+
 
     private BigDecimal bd(double val) {
         return BigDecimal.valueOf(val);
