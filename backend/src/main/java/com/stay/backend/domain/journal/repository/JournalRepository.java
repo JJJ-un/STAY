@@ -42,6 +42,19 @@ public interface JournalRepository extends JpaRepository<Journal, Long> {
             "WHERE j.isTracking = true AND (j.pricePattern IS NOT NULL OR j.targetPrice IS NOT NULL OR j.stopLossPrice IS NOT NULL)")
     List<com.stay.backend.domain.stock.dto.TrackingTargetDto> findActiveTrackingTargets();
 
+    // [No-Offset Keyset 커서 청크 페이징] 슬로우 쿼리(OFFSET) 원천 차단 및 OOM 방어
+    @Query("SELECT new com.stay.backend.domain.stock.dto.TrackingTargetDto(" +
+            "j.id, j.user.id, s.ticker, s.currentPrice, j.targetPrice, j.stopLossPrice, " +
+            "j.stayMessage, j.chartRangeType, j.pricePattern, j.similarityThreshold, j.isTracking) " +
+            "FROM Journal j JOIN j.stock s " +
+            "WHERE j.id > :lastJournalId AND j.isTracking = true " +
+            "AND (j.pricePattern IS NOT NULL OR j.targetPrice IS NOT NULL OR j.stopLossPrice IS NOT NULL) " +
+            "ORDER BY j.id ASC")
+    List<com.stay.backend.domain.stock.dto.TrackingTargetDto> findActiveTrackingTargetsChunk(
+            @Param("lastJournalId") Long lastJournalId,
+            Pageable pageable
+    );
+
 
     // 특정 유저의 특정 종목 일지 목록 조회 (차트 타임라인 마커용, 시간순 정렬)
     @Query("SELECT j FROM Journal j WHERE j.user.id = :userId AND j.stock.ticker = :ticker ORDER BY j.tradeDateTime ASC")

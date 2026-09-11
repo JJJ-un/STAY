@@ -9,6 +9,8 @@ import com.stay.backend.domain.stock.entity.ChartRangeType;
 import com.stay.backend.global.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,29 +65,54 @@ public class StockTrackingService {
             BigDecimal stopLossPrice
     ) {}
 
+    // 청크 분할 단위 (1바가지 당 1,000건씩 컨베이어 벨트 처리)
+    public static final int CHUNK_SIZE = 1000;
+
     /**
      * 전체 추적 활성화 일지들을 실시간으로 감시하고 알림 대상 목록 반환
-     * (종목별 그룹핑 및 멀티코어 병렬 파이프라인 적용)
+     * (No-Offset Keyset 커서 청크 페이징 + 종목별 그룹핑 멀티코어 병렬 파이프라인)
      */
     public List<TrackingAlertResult> checkAllActiveTrackingJournals() {
-        // 1. [Over-fetching 방지] 경량 DTO 프로젝션 조회
-        List<TrackingTargetDto> activeTargets = journalRepository.findActiveTrackingTargets();
-        if (activeTargets == null || activeTargets.isEmpty()) {
-            return Collections.emptyList();
+        List<TrackingAlertResult> allAlerts = new ArrayList<>();
+        Long lastJournalId = 0L;
+        Pageable pageable = PageRequest.of(0, CHUNK_SIZE);
+        int totalProcessed = 0;
+
+        while (true) {
+            // 1. [Reader] lastJournalId보다 큰 1,000건을 인덱스 커서로 0ms 조회 (OFFSET 슬로우 쿼리 원천 차단)
+            List<TrackingTargetDto> chunk = journalRepository.findActiveTrackingTargetsChunk(lastJournalId, pageable);
+            if (chunk == null || chunk.isEmpty()) {
+                break;
+            }
+
+            totalProcessed += chunk.size();
+
+            // 2. [Processor] 해당 청크(1,000건)를 종목별로 그룹핑하여 멀티코어 병렬 평가
+            Map<String, List<TrackingTargetDto>> targetsByTicker = chunk.stream()
+                    .collect(Collectors.groupingBy(TrackingTargetDto::ticker));
+
+            List<TrackingAlertResult> chunkAlerts = targetsByTicker.entrySet().parallelStream()
+                    .flatMap(entry -> evaluateTickerTargets(entry.getKey(), entry.getValue()).stream())
+                    .filter(result -> result != null && (result.isPatternMatched() || result.isTargetReached() || result.isStopLossReached()))
+                    .filter(this::isNotCoolingDown) // 중복 알림 쿨다운 체크
+                    .toList();
+
+            allAlerts.addAll(chunkAlerts);
+
+            // 3. [Cursor Update] 이번 청크의 마지막 journalId로 책갈피 갱신
+            lastJournalId = chunk.get(chunk.size() - 1).journalId();
+
+            // 청크 사이즈(1,000건)보다 적게 가져왔다면 더 이상 읽을 데이터가 없는 마지막 청크이므로 즉시 종료
+            if (chunk.size() < CHUNK_SIZE) {
+                break;
+            }
         }
 
-        log.info("추적 활성 일지 감시 시작: 총 {}건", activeTargets.size());
+        if (totalProcessed > 0) {
+            log.info("추적 활성 일지 감시 완료: 총 {}건 검사, 알림 발생 {}건", totalProcessed, allAlerts.size());
+        }
 
-        // 2. [종목별 그룹핑] 상위 종목(Ticker) 단위로 일지들을 묶어 N+1 중복 조회 제거
-        Map<String, List<TrackingTargetDto>> targetsByTicker = activeTargets.stream()
-                .collect(Collectors.groupingBy(TrackingTargetDto::ticker));
-
-        // 3. [멀티코어 병렬 스트림] 종목 그룹 단위로 멀티코어 분산 병렬 처리
-        return targetsByTicker.entrySet().parallelStream()
-                .flatMap(entry -> evaluateTickerTargets(entry.getKey(), entry.getValue()).stream())
-                .filter(result -> result != null && (result.isPatternMatched() || result.isTargetReached() || result.isStopLossReached()))
-                .filter(this::isNotCoolingDown) // 중복 알림 쿨다운 체크
-                .toList();
+        return allAlerts;
     }
 
     /**

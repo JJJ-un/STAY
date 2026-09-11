@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -61,7 +62,7 @@ class StockTrackingServiceTest {
                 true
         );
 
-        given(journalRepository.findActiveTrackingTargets()).willReturn(List.of(target));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(target));
 
         // 실시간 한투 API에서 가져온 현재 차트 (99% 유사 파동)
         List<StockChartResponse> mockChart = createMockChart(100.0, 96.0, 91.0, 89.0, 95.0);
@@ -101,7 +102,7 @@ class StockTrackingServiceTest {
                 true
         );
 
-        given(journalRepository.findActiveTrackingTargets()).willReturn(List.of(target));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(target));
 
         // 실시간 차트 마지막 종가가 $152.00로 목표가 돌파
         List<StockChartResponse> mockChart = createMockChart(120.0, 125.0, 130.0, 140.0, 152.0);
@@ -137,7 +138,7 @@ class StockTrackingServiceTest {
                 true
         );
 
-        given(journalRepository.findActiveTrackingTargets()).willReturn(List.of(target));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(target));
 
         List<StockChartResponse> mockChart = createMockChart(100.0, 100.0, 100.0, 100.0, 105.0);
         given(stockChartService.getChartData(eq("NVDA"), eq(ChartRangeType.DAY_1), any())).willReturn(mockChart);
@@ -181,7 +182,7 @@ class StockTrackingServiceTest {
                 "TSM 목표가 돌파 익절!", ChartRangeType.DAY_1, "[180.0, 185.0, 190.0, 195.0, 205.0]", 0.85, true
         );
 
-        given(journalRepository.findActiveTrackingTargets()).willReturn(List.of(t1, t2, t3, t4));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(t1, t2, t3, t4));
 
         // Mock 차트 시세 설정 (NVDA 99% 일치, AMD 0% 불일치, TSM $205 돌파)
         given(stockChartService.getChartData(eq("NVDA"), eq(ChartRangeType.MONTH_3), any()))
@@ -220,10 +221,10 @@ class StockTrackingServiceTest {
                 null,
                 null,
                 null,
-                false
+                true
         );
 
-        given(journalRepository.findActiveTrackingTargets()).willReturn(List.of(pureTarget));
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any())).willReturn(List.of(pureTarget));
 
         // 2. When
         List<TrackingAlertResult> alerts = stockTrackingService.checkAllActiveTrackingJournals();
@@ -237,6 +238,46 @@ class StockTrackingServiceTest {
         verify(stockChartService, times(0)).getChartData(any(), any(), any());
 
         log.info("⚡ [차트 미호출 목표가 판정 테스트] 차트 API 호출=0회, 현재가=128.50, 목표가=120.00, 판정성공!");
+    }
+
+    @Test
+    @DisplayName("대량 일지가 존재할 때 No-Offset Keyset 커서로 청크를 연속 분할 조회하여 누락 없이 전수 처리한다")
+    void shouldProcessMultipleChunksUsingKeysetCursorWithoutMissingData() {
+        // 1. Given: 1회차 청크(1,000건 가정, ID=1000까지) + 2회차 청크(마지막 청크, ID=1500까지)
+        TrackingTargetDto chunk1Target = new TrackingTargetDto(
+                1000L, 1L, "NVDA", bd(128.50), bd(120.00), null,
+                "1차 청크 목표가 도달!", null, null, null, true
+        );
+        TrackingTargetDto chunk2Target = new TrackingTargetDto(
+                1500L, 2L, "TSM", bd(205.00), bd(200.00), null,
+                "2차 청크 목표가 도달!", null, null, null, true
+        );
+
+        // 첫 번째 쿼리 (lastJournalId = 0L) -> 1,000건 청크 반환 (CHUNK_SIZE 1000개라고 가정하기 위해 1000개 리스트 모의)
+        List<TrackingTargetDto> firstChunk = new ArrayList<>(Collections.nCopies(StockTrackingService.CHUNK_SIZE - 1,
+                new TrackingTargetDto(1L, 1L, "NVDA", bd(128.50), bd(200.0), null, "미도달", null, null, null, true)));
+        firstChunk.add(chunk1Target); // 마지막에 1000L 추가
+
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any()))
+                .willReturn(firstChunk);
+
+        // 두 번째 쿼리 (lastJournalId = 1000L) -> 다음 1건 청크 반환 (마지막 청크)
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(1000L), any()))
+                .willReturn(List.of(chunk2Target));
+
+        // 2. When (배치 실행)
+        List<TrackingAlertResult> alerts = stockTrackingService.checkAllActiveTrackingJournals();
+
+        // 3. Then (두 청크 모두 누락 없이 처리되어 2건의 목표가 도달 알림 생성 확인)
+        assertThat(alerts).hasSize(2);
+        assertThat(alerts).extracting(TrackingAlertResult::journalId)
+                .containsExactlyInAnyOrder(1000L, 1500L);
+
+        // No-Offset 커서 호출 횟수 검증: 1회차(0L), 2회차(1000L) 총 2회 호출!
+        verify(journalRepository, times(1)).findActiveTrackingTargetsChunk(eq(0L), any());
+        verify(journalRepository, times(1)).findActiveTrackingTargetsChunk(eq(1000L), any());
+
+        log.info("📦 [No-Offset Keyset 청크 분할 처리 테스트] 1차 청크(ID 0~1000) -> 2차 청크(ID 1000~1500) 연속 분할 조회 및 누락 0건 전수 검사 성공!");
     }
 
     private BigDecimal bd(double val) {
