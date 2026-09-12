@@ -6,6 +6,7 @@ import com.stay.backend.domain.journal.repository.JournalRepository;
 import com.stay.backend.domain.stock.dto.StockChartResponse;
 import com.stay.backend.domain.stock.dto.TrackingTargetDto;
 import com.stay.backend.domain.stock.entity.ChartRangeType;
+import com.stay.backend.domain.stock.storage.CandleRollupEngine;
 import com.stay.backend.domain.stock.storage.RealtimePriceStorage;
 import com.stay.backend.global.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class StockTrackingService {
     private final StockChartService stockChartService;
     private final PatternMatchingEngine patternMatchingEngine;
     private final RealtimePriceStorage realtimePriceStorage;
+    private final CandleRollupEngine candleRollupEngine;
 
     // 중복 알림 폭탄 방지용 쿨다운 맵 (일지 ID -> 마지막 알림 발송 시각, 쿨다운: 30분)
     private final Map<Long, Instant> alertCooldownMap = new ConcurrentHashMap<>();
@@ -137,6 +139,15 @@ public class StockTrackingService {
             if (hasPattern) {
                 ChartRangeType rangeType = target.chartRangeType() != null ? target.chartRangeType() : ChartRangeType.MONTH_3;
                 chartDataByRange.computeIfAbsent(rangeType, r -> {
+                    // 1. 당일 5분봉(DAY_1)은 인메모리 롤업 엔진의 캔들 시계열 우선 채택 (외부 API 0회)
+                    if (r == ChartRangeType.DAY_1) {
+                        List<BigDecimal> dailyCandles = candleRollupEngine.getDailyCandles(ticker);
+                        if (dailyCandles != null && !dailyCandles.isEmpty()) {
+                            return dailyCandles;
+                        }
+                    }
+
+                    // 2. 그 외 기간(일봉, 주봉, 월봉) 또는 롤업 엔진 부재 시 중앙 캐시 기반 차트 서비스 조회
                     List<StockChartResponse> chartData = stockChartService.getChartData(ticker, r, null);
                     if (chartData != null && !chartData.isEmpty()) {
                         return chartData.stream()

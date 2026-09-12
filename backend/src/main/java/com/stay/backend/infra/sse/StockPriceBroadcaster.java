@@ -63,13 +63,15 @@ public class StockPriceBroadcaster {
                             return fallbackPrice;
                         });
 
-                // DB 엔티티 실시간 체결가/변동/등락/거래량 동기화
-                stock.updatePriceAndVolume(
-                        realtimePrice.currentPrice(),
-                        realtimePrice.changePrice(),
-                        realtimePrice.changeRate(),
-                        realtimePrice.volume()
-                );
+                // 가격이나 거래량에 실제 변동이 있을 때만 DB 엔티티 갱신 (불필요한 DB UPDATE 쿼리 차단)
+                if (isStockPriceChanged(stock, realtimePrice)) {
+                    stock.updatePriceAndVolume(
+                            realtimePrice.currentPrice(),
+                            realtimePrice.changePrice(),
+                            realtimePrice.changeRate(),
+                            realtimePrice.volume()
+                    );
+                }
 
                 updatedStockResponses.add(StockResponse.from(stock));
             } catch (Exception e) {
@@ -83,5 +85,16 @@ public class StockPriceBroadcaster {
             log.debug("SSE 시세 브로드캐스팅 완료: 전송 종목 수={}, 수신 클라이언트 수={}",
                     updatedStockResponses.size(), clientCount);
         }
+    }
+
+    /**
+     * DB 저장가 대비 실제 가격 또는 거래량 변동 발생 여부 확인
+     */
+    private boolean isStockPriceChanged(Stock stock, RealtimeStockPrice realtimePrice) {
+        if (stock.getCurrentPrice() == null) {
+            return true;
+        }
+        return stock.getCurrentPrice().compareTo(realtimePrice.currentPrice()) != 0
+                || (stock.getVolume() != null && !stock.getVolume().equals(realtimePrice.volume()));
     }
 }

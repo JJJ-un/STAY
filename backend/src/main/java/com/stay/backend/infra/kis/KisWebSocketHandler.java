@@ -2,6 +2,7 @@ package com.stay.backend.infra.kis;
 
 import com.stay.backend.domain.stock.dto.StockResponse;
 import com.stay.backend.domain.stock.service.StockSseService;
+import com.stay.backend.domain.stock.storage.CandleRollupEngine;
 import com.stay.backend.domain.stock.storage.RealtimePriceStorage;
 import com.stay.backend.infra.kis.dto.RealtimeStockPrice;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 /**
  * 한국투자증권 실시간 웹소켓 체결 데이터(HDFSCNT0) 수신 및 파싱 핸들러
@@ -24,6 +26,7 @@ public class KisWebSocketHandler extends TextWebSocketHandler {
 
     private final StockSseService stockSseService;
     private final RealtimePriceStorage realtimePriceStorage;
+    private final CandleRollupEngine candleRollupEngine;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -106,6 +109,9 @@ public class KisWebSocketHandler extends TextWebSocketHandler {
                     volume
             );
             realtimePriceStorage.updatePrice(ticker, realtimeStockPrice);
+
+            // 5분봉 롤업 엔진에 실시간 체결가 주입 (종가 추적용)
+            candleRollupEngine.acceptTick(ticker, currentPrice, Instant.now());
 
             // 우리 백엔드 SSE Emitter를 통해 프론트엔드로 즉시 밀어넣기
             stockSseService.broadcastSingleStock(stockResponse);
