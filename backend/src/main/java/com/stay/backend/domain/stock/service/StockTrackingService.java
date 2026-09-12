@@ -6,6 +6,7 @@ import com.stay.backend.domain.journal.repository.JournalRepository;
 import com.stay.backend.domain.stock.dto.StockChartResponse;
 import com.stay.backend.domain.stock.dto.TrackingTargetDto;
 import com.stay.backend.domain.stock.entity.ChartRangeType;
+import com.stay.backend.domain.stock.storage.RealtimePriceStorage;
 import com.stay.backend.global.util.JsonUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
  * - JPA Over-fetching 차단: 경량 TrackingTargetDto 프로젝션으로 필요한 필드만 직접 인출
  * - JSON 파싱 메모이제이션: Caffeine In-Memory Cache로 반복 역직렬화 CPU 부하 및 Minor GC 완벽 방어
  * - 종목(Ticker) 기준 그룹핑 & 병렬 파이프라인: N+1 중복 차트 조회 제거 및 멀티코어 100% 활용
+ * - 웹소켓 인메모리 시세(RealtimePriceStorage) 우선 판정: 외부 API 호출 0회 및 초저지연 평가
  */
 @Slf4j
 @Service
@@ -36,6 +38,7 @@ public class StockTrackingService {
     private final JournalRepository journalRepository;
     private final StockChartService stockChartService;
     private final PatternMatchingEngine patternMatchingEngine;
+    private final RealtimePriceStorage realtimePriceStorage;
 
     // 중복 알림 폭탄 방지용 쿨다운 맵 (일지 ID -> 마지막 알림 발송 시각, 쿨다운: 30분)
     private final Map<Long, Instant> alertCooldownMap = new ConcurrentHashMap<>();
@@ -145,14 +148,18 @@ public class StockTrackingService {
             }
         }
 
-        // 차트가 존재하면 해당 기간의 가장 최신 종가를 최신 현재가로 채택
-        BigDecimal resolvedCurrentPrice = defaultCurrentPrice;
-        for (List<BigDecimal> candles : chartDataByRange.values()) {
-            if (candles != null && !candles.isEmpty()) {
-                resolvedCurrentPrice = candles.get(candles.size() - 1);
-                break;
-            }
-        }
+        // 1. [웹소켓 인메모리 시세 우선] 외부 API 호출 0회, O(1) 초고속 조회
+        // 2. 만약 소켓 시세가 아직 없으면, 차트 데이터 최신 종가 확인
+        // 3. 둘 다 없으면 DB의 기본 stockCurrentPrice로 안전하게 폴백
+        BigDecimal resolvedCurrentPrice = realtimePriceStorage.getLatestCurrentPrice(ticker)
+                .orElseGet(() -> {
+                    for (List<BigDecimal> candles : chartDataByRange.values()) {
+                        if (candles != null && !candles.isEmpty()) {
+                            return candles.get(candles.size() - 1);
+                        }
+                    }
+                    return defaultCurrentPrice;
+                });
 
         BigDecimal finalPrice = resolvedCurrentPrice;
         List<TrackingAlertResult> results = new ArrayList<>(targets.size());

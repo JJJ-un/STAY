@@ -2,6 +2,8 @@ package com.stay.backend.infra.kis;
 
 import com.stay.backend.domain.stock.dto.StockResponse;
 import com.stay.backend.domain.stock.service.StockSseService;
+import com.stay.backend.domain.stock.storage.RealtimePriceStorage;
+import com.stay.backend.infra.kis.dto.RealtimeStockPrice;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,7 @@ import java.math.BigDecimal;
 public class KisWebSocketHandler extends TextWebSocketHandler {
 
     private final StockSseService stockSseService;
+    private final RealtimePriceStorage realtimePriceStorage;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
@@ -93,6 +96,16 @@ public class KisWebSocketHandler extends TextWebSocketHandler {
 
             log.debug("한투 실시간 체결가 수신: ticker={}, 현재가={}, 등락률={}%",
                     ticker, currentPrice, changeRate);
+
+            // 인메모리 고속 시세 저장소에 즉시 동기화 (O(1))
+            RealtimeStockPrice realtimeStockPrice = new RealtimeStockPrice(
+                    ticker,
+                    currentPrice,
+                    changePrice,
+                    changeRate,
+                    volume
+            );
+            realtimePriceStorage.updatePrice(ticker, realtimeStockPrice);
 
             // 우리 백엔드 SSE Emitter를 통해 프론트엔드로 즉시 밀어넣기
             stockSseService.broadcastSingleStock(stockResponse);
