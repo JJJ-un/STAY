@@ -1,5 +1,4 @@
 import type { JournalFormState, EmotionType } from '../types'
-import EmotionIcon from '@/shared/assets/emotion.svg?react'
 
 interface StepMindsetProps {
   form: JournalFormState
@@ -43,78 +42,67 @@ export function StepMindset({ form, onChange }: StepMindsetProps) {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* 질문형 상단 타이틀 */}
       <div className="space-y-1">
-        <h2 className="text-xl font-bold text-slate-900 leading-snug">
+        <h2 className="text-page-title text-slate-900">
           매매 당시의 마음과 <br />
           미래의 다짐을 적어보세요
         </h2>
-        <p className="text-xs text-slate-400">
+        <p className="text-body text-slate-500">
           뇌동매매를 방지하는 나만의 감정 기록과 STAY 메시지를 남깁니다.
         </p>
       </div>
 
-      {/* 1. 매매 당시 감정 상태 (emotion.svg 아이콘 적용) */}
-      <div className="space-y-2">
-        <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
-          <span>매매 당시 감정 상태</span>
-        </label>
+      {/* 1. 매매 당시 감정 상태 */}
+      <fieldset className="space-y-field">
+        <legend className="text-label text-slate-700">매매 당시 감정 상태</legend>
 
         <div className="grid grid-cols-1 gap-2">
           {EMOTION_ITEMS.map((item) => {
             const isSelected = form.emotion === item.id
             return (
-              <div
-                key={item.id}
-                onClick={() => onChange({ emotion: item.id })}
-                className={`p-3.5 rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
-                  isSelected
-                    ? 'bg-slate-900 text-white shadow-md'
-                    : 'bg-slate-50 text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`p-2 rounded-xl flex items-center justify-center transition-colors ${
-                      isSelected
-                        ? 'bg-white/10 text-white'
-                        : 'bg-slate-200/60 text-slate-700'
-                    }`}
-                  >
-                    <EmotionIcon
-                      className={`w-5 h-5 ${
-                        isSelected
-                          ? 'stroke-white [&>path]:stroke-white'
-                          : 'stroke-slate-700 [&>path]:stroke-slate-700'
-                      }`}
-                    />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold">{item.label}</div>
-                    <div
-                      className={`text-[11px] mt-0.5 ${
-                        isSelected ? 'text-slate-300' : 'text-slate-400'
-                      }`}
-                    >
-                      "{item.desc}"
-                    </div>
-                  </div>
-                </div>
-
+              <label key={item.id} className="cursor-pointer">
+                <input
+                  type="radio"
+                  name="emotion"
+                  value={item.id}
+                  checked={isSelected}
+                  onChange={() => onChange({ emotion: item.id })}
+                  aria-describedby={`emotion-${item.id}-description`}
+                  className="peer sr-only"
+                />
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-xs transition-colors ${
-                    isSelected ? 'bg-blue-600 text-white' : 'bg-slate-200 text-transparent'
+                  className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-blue-600 peer-focus-visible:ring-offset-2 ${
+                    isSelected
+                      ? 'border-blue-600 bg-blue-50'
+                      : 'border-transparent bg-slate-50 hover:bg-slate-100'
                   }`}
                 >
-                  ✓
+                  <div className="min-w-0">
+                    <div className="text-label text-slate-900">{item.label}</div>
+                    <div
+                      id={`emotion-${item.id}-description`}
+                      className="text-caption mt-0.5 text-slate-500"
+                    >
+                      {item.desc}
+                    </div>
+                  </div>
+                  <span
+                    aria-hidden="true"
+                    className={`w-5 h-5 shrink-0 rounded-full border flex items-center justify-center ${
+                      isSelected ? 'border-blue-600' : 'border-slate-300'
+                    }`}
+                  >
+                    {isSelected && <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  </span>
                 </div>
-              </div>
+              </label>
             )
           })}
         </div>
-      </div>
+      </fieldset>
 
       {/* 2. 매매 이유 메모 */}
-      <div className="space-y-2">
-        <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+      <div className="space-y-field">
+        <label className="text-label text-slate-700 flex items-center gap-1.5">
           <span>매매 이유 (진입/청산 근거)</span>
         </label>
         <textarea
@@ -122,13 +110,13 @@ export function StepMindset({ form, onChange }: StepMindsetProps) {
           value={form.reasonMemo}
           onChange={(e) => onChange({ reasonMemo: e.target.value })}
           placeholder="아이디어, 차트 패턴, 호재/악재 등 구체적인 이유를 자유롭게 적어주세요."
-          className="w-full bg-slate-50 rounded-2xl p-4 text-xs font-medium text-slate-900 placeholder:text-slate-300 focus:outline-none focus:bg-slate-100 focus:ring-2 focus:ring-blue-600 transition-all resize-none"
+          className="text-input w-full bg-slate-50 rounded-2xl p-4 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:bg-slate-100 focus:ring-2 focus:ring-blue-600 transition-all resize-none"
         />
       </div>
 
       {/* 3. 미래의 나에게 보내는 메시지 (S-T-A-Y 한마디) */}
-      <div className="space-y-2">
-        <label className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+      <div className="space-y-field">
+        <label className="text-label text-slate-700 flex items-center gap-1.5">
           <span>미래의 나에게 보내는 메시지 (S-T-A-Y 한마디)</span>
         </label>
         <div className="relative">
@@ -137,7 +125,7 @@ export function StepMindset({ form, onChange }: StepMindsetProps) {
             value={form.stayMessage}
             onChange={(e) => onChange({ stayMessage: e.target.value })}
             placeholder='예: "손절가 터치하면 미련 없이 팔아라. 나중에 후회하지 말고!"&#10;예: "지금 매수 버튼 누르고 싶지? 차트 끄고 30분 뒤에 다시 봐라."'
-            className="w-full bg-blue-50/60 rounded-2xl p-4 text-xs font-semibold text-blue-950 placeholder:text-blue-300 focus:outline-none focus:bg-blue-50 focus:ring-2 focus:ring-blue-600 transition-all resize-none"
+            className="text-input w-full bg-blue-50/60 rounded-2xl p-4 text-blue-950 placeholder:text-blue-500 focus:outline-none focus:bg-blue-50 focus:ring-2 focus:ring-blue-600 transition-all resize-none"
           />
         </div>
       </div>
