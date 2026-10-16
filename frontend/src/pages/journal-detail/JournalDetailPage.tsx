@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { CheckSquare, ShieldAlert, Target, Loader2, Edit3, Trash2 } from 'lucide-react'
+import { CheckCircle2, Circle, Loader2, Edit3, Trash2 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
-import { journalApi, useJournalDetailQuery, type EmotionType, type TradeType, type ChecklistResponse } from '@/entities/journal'
+import { journalApi, useJournalDetailQuery, type CurrencyType, type EmotionType, type HoldingPeriod, type TradeType } from '@/entities/journal'
 import { Toast, useToast } from '@/shared/ui'
 
 // 감정 라벨 매핑
@@ -18,6 +18,26 @@ const TRADE_TYPE_COLOR_MAP: Record<TradeType, { bg: string; text: string; label:
   BUY: { bg: 'bg-red-50', text: 'text-red-600', label: '매수' },
   SELL: { bg: 'bg-blue-50', text: 'text-blue-600', label: '매도' },
   WATCH: { bg: 'bg-slate-200/80', text: 'text-slate-800', label: '관망' },
+}
+
+const HOLDING_PERIOD_LABELS: Record<HoldingPeriod, string> = {
+  SHORT: '단기 · 1일~1주',
+  MEDIUM: '중기 · 1주~1개월',
+  LONG: '장기 · 1개월 이상',
+}
+
+function isPositiveNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+}
+
+function formatMoney(value: number | null | undefined, currency: CurrencyType): string {
+  if (!isPositiveNumber(value)) return '미기록'
+  return new Intl.NumberFormat(currency === 'KRW' ? 'ko-KR' : 'en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: currency === 'USD' ? 2 : 0,
+    maximumFractionDigits: 4,
+  }).format(value)
 }
 
 export function JournalDetailPage() {
@@ -65,7 +85,7 @@ export function JournalDetailPage() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[50vh] space-y-3">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="text-xs text-slate-500 font-medium">일지 불러오는 중...</p>
+        <p className="text-body text-slate-500">일지 불러오는 중...</p>
       </div>
     )
   }
@@ -74,11 +94,11 @@ export function JournalDetailPage() {
   if (isError || !journal) {
     return (
       <div className="flex-1 p-6 flex flex-col items-center justify-center text-center space-y-4 min-h-[50vh]">
-        <p className="text-sm font-bold text-slate-800">일지를 찾을 수 없습니다.</p>
+        <p className="text-body text-slate-800">일지를 찾을 수 없습니다.</p>
         <button
           type="button"
           onClick={() => navigate('/journal')}
-          className="px-5 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-2xl shadow-md cursor-pointer"
+          className="text-action px-5 py-2.5 bg-slate-900 text-white rounded-2xl shadow-md cursor-pointer"
         >
           일지 목록으로 돌아가기
         </button>
@@ -86,174 +106,172 @@ export function JournalDetailPage() {
     )
   }
 
-  const stockName = journal.stock?.name || '종목명'
+  const stockName = journal.stock?.name || '종목명 미기록'
   const stockTicker = journal.stock?.ticker || ''
-  const tradeType = (journal.tradeType || 'BUY') as TradeType
-  const tradeTypeInfo = TRADE_TYPE_COLOR_MAP[tradeType] || TRADE_TYPE_COLOR_MAP.BUY
+  const tradeTypeInfo = TRADE_TYPE_COLOR_MAP[journal.tradeType]
+  const isWatch = journal.tradeType === 'WATCH'
+  const emotionLabel = journal.emotion ? EMOTION_LABEL_MAP[journal.emotion] : '미기록'
+  const checklists = journal.checklists || []
+  const checkedCount = checklists.filter((item) => item.isChecked).length
 
-  const price = journal.price || 0
-  const quantity = journal.quantity || 0
-  const totalPrice = journal.totalPrice || price * quantity
-  const currencySymbol = journal.currency === 'KRW' ? '원' : '$'
-
-  const targetPrice = journal.targetPrice || 0
-  const stopLossPrice = journal.stopLossPrice || 0
-
-  const emotion = (journal.emotion || 'CONFIDENCE') as EmotionType
-  const emotionLabel = EMOTION_LABEL_MAP[emotion] || '자신감'
-
-  // 날짜 포맷
-  let formattedDate = journal.tradeDateTime || ''
-  if (formattedDate.includes('T')) {
-    const [datePart, timePart] = formattedDate.split('T')
-    const cleanTime = timePart?.slice(0, 5) || ''
-    formattedDate = `${datePart.replace(/-/g, '.')} ${cleanTime}`
-  }
+  const tradeMetrics = isWatch
+    ? [{ label: '참고 시세', value: formatMoney(journal.price, journal.currency) }]
+    : [
+        { label: '체결가', value: formatMoney(journal.price, journal.currency) },
+        {
+          label: '수량',
+          value: isPositiveNumber(journal.quantity)
+            ? `${new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 4 }).format(journal.quantity)}주`
+            : '미기록',
+        },
+      ]
+  const ruleMetrics = [
+    isPositiveNumber(journal.targetPrice)
+      ? { label: '목표가', value: formatMoney(journal.targetPrice, journal.currency) }
+      : null,
+    isPositiveNumber(journal.stopLossPrice)
+      ? { label: '손절가', value: formatMoney(journal.stopLossPrice, journal.currency) }
+      : null,
+    journal.holdingPeriod
+      ? { label: '목표 보유 기간', value: HOLDING_PERIOD_LABELS[journal.holdingPeriod] }
+      : null,
+  ].filter((metric) => metric !== null)
+  const formattedDate = journal.tradeDateTime
+    ? journal.tradeDateTime.replace('T', ' ').slice(0, 16).replace(/-/g, '.')
+    : '일시 미기록'
 
   return (
-    <div className="flex-1 p-4 pb-20 space-y-5 bg-white scrollbar-none relative">
+    <div className="flex-1 p-4 pb-6 space-y-6 bg-white relative">
       <Toast
         message={toastState.message}
         type={toastState.type}
         isVisible={toastState.isVisible}
       />
 
-      {/* 1. 상단: 종목 정보 & 매매 유형 뱃지 */}
-      <div className="bg-slate-50 rounded-3xl p-5 space-y-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2.5">
-            <span
-              className={`px-2.5 py-1 rounded-full text-xs font-bold ${tradeTypeInfo.bg} ${tradeTypeInfo.text}`}
-            >
+      <section className="rounded-2xl bg-slate-50 p-card space-y-4" aria-labelledby="journal-stock-heading">
+        <div className="space-y-2">
+          <div className="flex items-start gap-3">
+            <h1 id="journal-stock-heading" className="text-page-title min-w-0 flex-1 break-words text-slate-900">
+              {stockName}
+            </h1>
+            <span className={`text-badge mt-1 shrink-0 rounded-full px-2 py-0.5 ${tradeTypeInfo.bg} ${tradeTypeInfo.text}`}>
               {tradeTypeInfo.label}
             </span>
-            <div>
-              <h2 className="text-base font-black text-slate-900 leading-tight">
-                {stockName}
-              </h2>
-              {stockTicker && (
-                <span className="text-[11px] font-semibold text-slate-400 mt-0.5 block">
-                  {stockTicker}
-                </span>
-              )}
-            </div>
           </div>
-
-          <span className="text-xs font-medium text-slate-400 tabular-nums">
-            {formattedDate}
-          </span>
-        </div>
-
-        {/* 매매 수치 데이터 요약 */}
-        <div className="bg-white rounded-2xl p-4 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-500 font-medium">
-              {price.toLocaleString()} {currencySymbol} · {quantity.toLocaleString()}주
-            </span>
-            <span className="text-base font-black text-slate-900 tabular-nums">
-              {totalPrice.toLocaleString()} {currencySymbol}
-            </span>
-          </div>
-
-          {(targetPrice > 0 || stopLossPrice > 0) && (
-            <div className="flex items-center gap-4 pt-2 text-xs font-semibold text-slate-600">
-              {targetPrice > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <Target className="w-3.5 h-3.5 text-red-500" />
-                  <span>목표가 <strong className="text-red-500 font-bold">{targetPrice.toLocaleString()}{currencySymbol}</strong></span>
-                </div>
-              )}
-              {stopLossPrice > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 text-blue-600" />
-                  <span>손절가 <strong className="text-blue-600 font-bold">{stopLossPrice.toLocaleString()}{currencySymbol}</strong></span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 2. 원칙 체크리스트 */}
-      {journal.checklists && journal.checklists.length > 0 && (
-        <div className="bg-slate-50 rounded-3xl p-5 space-y-3">
-          <div className="flex items-center gap-2 text-slate-900">
-            <CheckSquare className="w-4 h-4 text-blue-600" />
-            <h3 className="text-xs font-black text-slate-900">매수 전 원칙 체크리스트</h3>
-          </div>
-          <div className="space-y-2">
-            {journal.checklists.map((c: ChecklistResponse) => (
-              <div
-                key={c.checklistId}
-                className="bg-white p-3.5 rounded-2xl flex items-center gap-2.5 text-xs"
-              >
-                <div
-                  className={`w-4 h-4 rounded-md flex items-center justify-center ${
-                    c.isChecked ? 'bg-blue-600 text-white' : 'bg-slate-200 text-transparent'
-                  }`}
-                >
-                  ✓
-                </div>
-                <span className={`font-semibold ${c.isChecked ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
-                  {c.content}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 3. 심리 상태 & STAY 다짐 메시지 */}
-      <div className="bg-slate-50 rounded-3xl p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-500">매매 당시 심리 상태</span>
-          <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold text-xs">
-            {emotionLabel}
-          </span>
-        </div>
-
-        {journal.reasonMemo && (
-          <div className="bg-white rounded-2xl p-4 space-y-1">
-            <span className="text-[11px] font-bold text-slate-400">매매 근거 메모</span>
-            <p className="text-xs font-semibold text-slate-700 leading-relaxed whitespace-pre-wrap">
-              {journal.reasonMemo}
-            </p>
-          </div>
-        )}
-
-        <div className="bg-blue-600 text-white rounded-2xl p-4 space-y-1.5 shadow-md">
-          <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider">
-            STAY 다짐 메시지
-          </span>
-          <p className="text-xs font-bold leading-relaxed">
-            "{journal.stayMessage}"
+          <p className="text-caption flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-500">
+            {stockTicker && <span>{stockTicker}</span>}
+            {stockTicker && <span aria-hidden="true">·</span>}
+            <span>{isWatch ? '관망 기록' : '거래 일시'}</span>
+            <time dateTime={journal.tradeDateTime || undefined} className="tabular-nums">{formattedDate}</time>
           </p>
         </div>
-      </div>
 
-      {/* 4. 하단 수정 및 삭제 버튼 영역 */}
-      <div className="pt-3 pb-6 flex items-center gap-3">
+        <dl className={`grid gap-4 border-t border-slate-200/70 pt-4 ${isWatch ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {tradeMetrics.map((metric) => (
+            <div key={metric.label} className="min-w-0 space-y-1">
+              <dt className="text-caption text-slate-500">{metric.label}</dt>
+              <dd className="text-price break-words text-slate-900 tabular-nums">{metric.value}</dd>
+            </div>
+          ))}
+          {!isWatch && (
+            <div className="col-span-2 flex flex-wrap items-baseline justify-between gap-2 border-t border-slate-200/70 pt-3">
+              <dt className="text-label text-slate-600">거래금액</dt>
+              <dd className="text-price break-words text-slate-900 tabular-nums">
+                {formatMoney(journal.totalPrice, journal.currency)}
+              </dd>
+            </div>
+          )}
+        </dl>
+        {isWatch && <p className="text-caption text-slate-500">매매하지 않고 관찰한 기록입니다.</p>}
+      </section>
+
+      <section className="rounded-2xl bg-slate-50 p-card space-y-4" aria-labelledby="journal-reason-heading">
+        <h2 id="journal-reason-heading" className="text-section-title text-slate-900">당시의 판단</h2>
+        <dl>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <dt className="text-label text-slate-600">당시 감정</dt>
+            <dd className="text-label text-slate-900">{emotionLabel}</dd>
+          </div>
+        </dl>
+        <div className="space-y-2">
+          <h3 className="text-label text-slate-600">{isWatch ? '관망 이유' : '매매 이유'}</h3>
+          {journal.reasonMemo?.trim() ? (
+            <p className="text-body break-words whitespace-pre-wrap text-slate-700">{journal.reasonMemo}</p>
+          ) : (
+            <p className="text-body text-slate-500">기록한 이유가 없습니다.</p>
+          )}
+        </div>
+      </section>
+
+      {ruleMetrics.length > 0 && (
+        <section className="rounded-2xl bg-slate-50 p-card space-y-4" aria-labelledby="journal-rules-heading">
+          <h2 id="journal-rules-heading" className="text-section-title text-slate-900">기록한 매매 기준</h2>
+          <dl className="grid grid-cols-2 gap-4">
+            {ruleMetrics.map((metric) => (
+              <div key={metric.label} className="min-w-0 space-y-1">
+                <dt className="text-caption text-slate-500">{metric.label}</dt>
+                <dd className="text-label break-words text-slate-900 tabular-nums">{metric.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      )}
+
+      {checklists.length > 0 && (
+        <section className="rounded-2xl bg-slate-50 p-card space-y-3" aria-labelledby="journal-checklist-heading">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="journal-checklist-heading" className="text-section-title text-slate-900">원칙 준수 기록</h2>
+            <span className="text-caption text-slate-500">{checkedCount}/{checklists.length} 항목 준수</span>
+          </div>
+          <ul className="divide-y divide-slate-200/70">
+            {checklists.map((item) => (
+              <li key={item.checklistId} className="flex items-start gap-3 py-3">
+                {item.isChecked ? (
+                  <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-blue-600" aria-hidden="true" />
+                ) : (
+                  <Circle className="mt-1 h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                )}
+                <p className="text-body min-w-0 flex-1 break-words text-slate-700">{item.content}</p>
+                <span className={`text-caption mt-0.5 shrink-0 ${item.isChecked ? 'text-blue-600' : 'text-slate-500'}`}>
+                  {item.isChecked ? '준수' : '미준수'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section className="rounded-2xl bg-blue-600 p-card space-y-3 text-white" aria-labelledby="journal-commitment-heading">
+        <h2 id="journal-commitment-heading" className="text-section-title">미래의 나에게</h2>
+        <p className="text-body break-words whitespace-pre-wrap">
+          {journal.stayMessage?.trim() ? journal.stayMessage : '아직 다짐 메시지를 남기지 않았습니다.'}
+        </p>
+      </section>
+
+      <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={handleEdit}
-          className="flex-1 py-3.5 px-4 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          disabled={isDeleting}
+          className="text-action flex-1 rounded-2xl bg-slate-900 px-4 py-3.5 text-white transition-colors hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer disabled:opacity-50"
         >
-          <Edit3 className="w-3.5 h-3.5" />
-          <span>수정하기</span>
+          <span className="flex items-center justify-center gap-2">
+            <Edit3 className="h-4 w-4" aria-hidden="true" />
+            일지 수정
+          </span>
         </button>
-
         <button
           type="button"
           onClick={handleDelete}
           disabled={isDeleting}
-          className="py-3.5 px-4 bg-rose-50 hover:bg-rose-100 active:scale-[0.99] text-rose-600 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+          className="text-label flex items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-rose-600 transition-colors hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 cursor-pointer disabled:opacity-50"
         >
           {isDeleting ? (
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-rose-600" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
-            <Trash2 className="w-3.5 h-3.5" />
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
           )}
-          <span>삭제</span>
+          삭제
         </button>
       </div>
     </div>
