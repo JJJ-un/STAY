@@ -73,7 +73,6 @@ export function StockChart({
       {selectedMarker && (
         <TimelineJournalCard
           marker={selectedMarker}
-          onClose={() => setSelectedMarker(null)}
           onJournalClick={onJournalClick}
         />
       )}

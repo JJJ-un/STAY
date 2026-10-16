@@ -56,11 +56,11 @@ export function LoginPage() {
       <div className="pt-12 space-y-6">
 
         <div className="space-y-2">
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 leading-snug">
+          <h1 className="text-page-title text-slate-900">
             흔들리지 않는 원칙 투자,<br />
             STAY로 시작해 보세요
           </h1>
-          <p className="text-sm text-slate-500 font-medium leading-relaxed">
+          <p className="text-body text-slate-500">
             매수 전 나만의 원칙을 기록하고 뇌동매매를 방지하세요.
           </p>
         </div>
@@ -69,7 +69,7 @@ export function LoginPage() {
       {/* 2. 중앙 여백 및 심플한 강조 그래픽 */}
       <div className="my-auto py-10 flex flex-col items-center justify-center">
         <div className="w-24 h-24 rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
-          <div className="text-3xl font-black tracking-tight">STAY</div>
+          <div className="text-page-title">STAY</div>
         </div>
       </div>
 
@@ -79,7 +79,7 @@ export function LoginPage() {
         <button
           type="button"
           onClick={handleGoogleLogin}
-          className="w-full py-4 px-4 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold text-sm rounded-2xl shadow-md transition-all flex items-center justify-center gap-3 cursor-pointer"
+          className="text-action w-full py-4 px-4 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white rounded-2xl shadow-md transition-all flex items-center justify-center gap-3 cursor-pointer"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -108,7 +108,7 @@ export function LoginPage() {
             type="button"
             onClick={handleDevLogin}
             disabled={isDevLoading}
-            className="w-full py-3.5 px-4 bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 font-bold text-xs rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="text-action w-full py-3.5 px-4 bg-slate-100 hover:bg-slate-200 active:scale-[0.99] text-slate-700 rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {isDevLoading ? (
               <Loader2 className="w-4 h-4 animate-spin text-slate-600" />
@@ -119,7 +119,7 @@ export function LoginPage() {
         )}
 
         {/* 하단 약관 안내 문구 */}
-        <p className="text-[11px] text-center text-slate-400 pt-2 font-normal leading-relaxed">
+        <p className="text-caption text-center text-slate-500 pt-2">
           로그인 시 STAY의 서비스 이용약관 및 개인정보 처리방침에 동의하게 됩니다.
         </p>
       </div>

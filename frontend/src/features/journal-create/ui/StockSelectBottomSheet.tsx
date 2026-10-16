@@ -61,7 +61,7 @@ export function StockSelectBottomSheet({
 
         {/* 바텀시트 헤더 */}
         <div className="flex items-center justify-between pt-1">
-          <h2 className="text-base font-bold text-slate-900">종목 선택</h2>
+          <h2 className="text-section-title text-slate-900">종목 선택</h2>
           <button
             type="button"
             onClick={onClose}
@@ -79,18 +79,18 @@ export function StockSelectBottomSheet({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="종목명 또는 티커 검색 (예: NVDA, AMD)"
-            className="w-full bg-slate-100 rounded-2xl pl-10 pr-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:bg-slate-50 focus:ring-2 focus:ring-blue-600 transition-all"
+            className="text-input w-full bg-slate-100 rounded-2xl pl-10 pr-4 py-3 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:bg-slate-50 focus:ring-2 focus:ring-blue-600 transition-all"
           />
         </div>
 
         {/* 종목 리스트 (실제 백엔드 API 데이터) */}
         <div className="flex-1 overflow-y-auto space-y-1.5 pt-1 pr-1 scrollbar-none">
           {isLoading ? (
-            <div className="py-10 text-center text-xs text-slate-400">
+            <div className="text-caption py-10 text-center text-slate-500">
               종목을 불러오는 중입니다...
             </div>
           ) : stocks.length === 0 ? (
-            <div className="py-10 text-center text-xs text-slate-400">
+            <div className="text-caption py-10 text-center text-slate-500">
               검색 결과가 없습니다.
             </div>
           ) : (
@@ -112,22 +112,22 @@ export function StockSelectBottomSheet({
                   }}
                   className={`p-3.5 rounded-2xl flex items-center justify-between cursor-pointer transition-all ${
                     isSelected
-                      ? 'bg-blue-50 text-blue-700 font-bold'
+                      ? 'bg-blue-50 text-blue-700 font-medium'
                       : 'hover:bg-slate-50 text-slate-900'
                   }`}
                 >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold">{stock.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold">
+                      <span className="text-item-title">{stock.name}</span>
+                      <span className="text-badge px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500">
                         US
                       </span>
                     </div>
-                    <span className="text-xs text-slate-400">{stock.ticker}</span>
+                    <span className="text-caption text-slate-500">{stock.ticker}</span>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold tabular-nums">
+                    <span className="text-label tabular-nums">
                       ${stock.currentPrice.toLocaleString()}
                     </span>
                     {isSelected && <Check className="w-4 h-4 text-blue-600 shrink-0" />}

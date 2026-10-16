@@ -18,8 +18,8 @@ const VARIANT_STYLES: Record<BadgeVariant, string> = {
 }
 
 const SIZE_STYLES: Record<BadgeSize, string> = {
-  sm: 'text-[10px] px-2 py-0.5',
-  md: 'text-xs px-2.5 py-0.5',
+  sm: 'px-2 py-0.5',
+  md: 'px-2.5 py-1',
 }
 
 export function Badge({
@@ -31,7 +31,7 @@ export function Badge({
 }: BadgeProps) {
   return (
     <div
-      className={`inline-flex items-center font-bold tabular-nums rounded-full transition-colors ${VARIANT_STYLES[variant]} ${SIZE_STYLES[size]} ${className}`}
+      className={`text-badge inline-flex items-center tabular-nums rounded-full transition-colors ${VARIANT_STYLES[variant]} ${SIZE_STYLES[size]} ${className}`}
       {...props}
     >
       {children}

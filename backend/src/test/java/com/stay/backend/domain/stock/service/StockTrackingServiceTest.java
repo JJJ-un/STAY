@@ -5,6 +5,8 @@ import com.stay.backend.domain.stock.dto.StockChartResponse;
 import com.stay.backend.domain.stock.dto.TrackingTargetDto;
 import com.stay.backend.domain.stock.entity.ChartRangeType;
 import com.stay.backend.domain.stock.service.StockTrackingService.TrackingAlertResult;
+import com.stay.backend.domain.stock.storage.CandleRollupEngine;
+import com.stay.backend.domain.stock.storage.RealtimePriceStorage;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -43,6 +46,12 @@ class StockTrackingServiceTest {
 
     @Spy
     private PatternMatchingEngine patternMatchingEngine = new PatternMatchingEngine();
+
+    @Spy
+    private RealtimePriceStorage realtimePriceStorage = new RealtimePriceStorage();
+
+    @Mock
+    private CandleRollupEngine candleRollupEngine;
 
     @Test
     @DisplayName("과거 패턴과 현재 실시간 차트가 85% 이상 일치하면 PATTERN_MATCHED 알림을 발생시킨다")
@@ -278,6 +287,89 @@ class StockTrackingServiceTest {
         verify(journalRepository, times(1)).findActiveTrackingTargetsChunk(eq(1000L), any());
 
         log.info("📦 [No-Offset Keyset 청크 분할 처리 테스트] 1차 청크(ID 0~1000) -> 2차 청크(ID 1000~1500) 연속 분할 조회 및 누락 0건 전수 검사 성공!");
+    }
+
+    @Test
+    @DisplayName("DB 현재가가 목표가 미도달이더라도, 웹소켓 인메모리 저장소에 최신 체결가가 있으면 웹소켓 시세를 우선하여 목표가를 판정한다")
+    void shouldPrioritizeWebsocketRealtimePriceOverDatabasePrice() {
+        // 1. Given: DB 저장가는 120.0 (목표가 130.0 미도달)
+        TrackingTargetDto target = new TrackingTargetDto(
+                2000L,
+                1L,
+                "NVDA",
+                bd(120.0), // DB 저장가 (미도달)
+                bd(130.0), // 목표가
+                null,
+                "웹소켓 체결가 즉시 판정 테스트",
+                null,
+                null,
+                null,
+                true
+        );
+
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any()))
+                .willReturn(List.of(target));
+
+        // 웹소켓 인메모리 저장소에 최신 체결가 135.0 (목표가 초과 달성!) 적재
+        realtimePriceStorage.updatePrice("NVDA", new com.stay.backend.infra.kis.dto.RealtimeStockPrice(
+                "NVDA",
+                bd(135.0),
+                bd(15.0),
+                bd(12.5),
+                10_000_000L
+        ));
+
+        // 2. When
+        List<TrackingAlertResult> alerts = stockTrackingService.checkAllActiveTrackingJournals();
+
+        // 3. Then: DB 가격이 아닌 웹소켓 가격(135.0)을 우선 채택하여 목표가 도달 알림 생성!
+        assertThat(alerts).hasSize(1);
+        TrackingAlertResult alert = alerts.get(0);
+        assertThat(alert.isTargetReached()).isTrue();
+        assertThat(alert.currentPrice()).isEqualByComparingTo(bd(135.0));
+
+        log.info("⚡ [웹소켓 시세 우선 판정 테스트] DB 가격(120.0) 대신 웹소켓 실시간 가격(135.0)을 즉시 채택하여 목표가 달성 판정 성공!");
+    }
+
+    @Test
+    @DisplayName("DAY_1(5분봉) 패턴 감시 시 외부 차트 API 대신 CandleRollupEngine의 인메모리 캔들을 우선 채택한다")
+    void shouldPrioritizeCandleRollupEngineForDay1Range() {
+        // 1. Given: DAY_1 탭의 패턴 추적 일지 등록
+        TrackingTargetDto target = new TrackingTargetDto(
+                3000L,
+                1L,
+                "NVDA",
+                bd(120.0),
+                null,
+                null,
+                "5분봉 롤업 패턴 감시",
+                ChartRangeType.DAY_1,
+                "[100.0, 95.0, 90.0, 88.0, 94.0]",
+                null,
+                true
+        );
+
+        given(journalRepository.findActiveTrackingTargetsChunk(eq(0L), any()))
+                .willReturn(List.of(target));
+
+        // CandleRollupEngine이 인메모리 5분봉 시계열을 반환하도록 설정 (5개 캔들)
+        given(candleRollupEngine.getDailyCandles("NVDA"))
+                .willReturn(List.of(bd(100.0), bd(95.0), bd(90.0), bd(88.0), bd(94.0)));
+
+        // 2. When
+        List<TrackingAlertResult> alerts = stockTrackingService.checkAllActiveTrackingJournals();
+
+        // 3. Then
+        assertThat(alerts).hasSize(1);
+        TrackingAlertResult alert = alerts.get(0);
+        assertThat(alert.isPatternMatched()).isTrue();
+        assertThat(alert.similarity()).isGreaterThanOrEqualTo(0.85);
+
+        // 검증: DAY_1에 대해서는 stockChartService.getChartData가 절대 호출되지 않아야 함! (0회)
+        verify(stockChartService, times(0)).getChartData(eq("NVDA"), eq(ChartRangeType.DAY_1), any());
+        verify(candleRollupEngine, times(1)).getDailyCandles("NVDA");
+
+        log.info("🎯 [DAY_1 5분봉 롤업 엔진 우선 연동 테스트] 외부 차트 API 호출 0회 및 인메모리 캔들로 DTW 패턴 매칭 100% 성공!");
     }
 
     private BigDecimal bd(double val) {

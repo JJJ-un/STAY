@@ -50,8 +50,8 @@ export function OAuthCallbackPage() {
           <Loader2 className="w-7 h-7 animate-spin text-blue-400" />
         </div>
         <div className="text-center space-y-1">
-          <h2 className="text-base font-bold text-white">안전하게 로그인 처리 중</h2>
-          <p className="text-xs text-slate-400">잠시만 기다려 주세요...</p>
+          <h2 className="text-section-title text-white">안전하게 로그인 처리 중</h2>
+          <p className="text-body text-slate-500">잠시만 기다려 주세요...</p>
         </div>
       </div>
     </div>

@@ -67,9 +67,10 @@ export interface JournalResponse {
   journalId: number
   stockId: number
   stockName: string
-  stockTicker: string
+  ticker: string
   tradeType: TradeType
   tradeDateTime: string
+  currency: CurrencyType
   stayMessage: string
   emotion?: EmotionType
   reasonMemo?: string
@@ -79,6 +80,7 @@ export interface JournalResponse {
   stopLossPrice?: number
   holdingPeriod?: HoldingPeriod
   isTracking?: boolean
+  createdAt?: string
 }
 
 // 주식일지 단건 상세 응답 DTO (GET /api/v1/journals/{journalId})
@@ -119,15 +121,6 @@ export interface MyJournalFeed {
   stockName: string
   tradeType: '매수' | '매도' | '관망'
   content: string
-}
-
-export interface SharedJournalFeed {
-  id: string
-  author: string
-  stockName: string
-  category: '노하우' | '원칙' | '복기'
-  content: string
-  likes: number
 }
 
 export interface RecommendedCommitment {

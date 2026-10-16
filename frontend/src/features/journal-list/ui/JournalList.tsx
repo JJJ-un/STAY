@@ -31,19 +31,23 @@ export function JournalList({
         {[1, 2, 3].map((idx) => (
           <div
             key={idx}
-            className="bg-slate-50 rounded-2xl p-5 space-y-4 animate-pulse"
+            className="bg-slate-50 rounded-2xl p-card space-y-3 animate-pulse"
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-12 h-6 bg-slate-200 rounded-full" />
+              <div className="flex-1 space-y-1">
                 <div className="space-y-1.5">
                   <div className="w-24 h-4 bg-slate-200 rounded-md" />
-                  <div className="w-12 h-3 bg-slate-200 rounded-md" />
+                  <div className="w-36 h-3 bg-slate-200 rounded-md" />
                 </div>
               </div>
-              <div className="w-20 h-3 bg-slate-200 rounded-md" />
+              <div className="w-10 h-5 bg-slate-200 rounded-full" />
             </div>
-            <div className="w-full h-12 bg-slate-200/60 rounded-xl" />
+            <div className="w-40 h-5 bg-slate-200 rounded-md" />
+            <div className="space-y-2">
+              <div className="w-20 h-3 bg-slate-200 rounded-md" />
+              <div className="w-full h-4 bg-slate-200 rounded-md" />
+              <div className="w-3/4 h-4 bg-slate-200 rounded-md" />
+            </div>
           </div>
         ))}
       </div>
@@ -58,10 +62,10 @@ export function JournalList({
           <LogIn className="w-6 h-6" />
         </div>
         <div className="space-y-1">
-          <h3 className="text-sm font-bold text-slate-900">
+          <h3 className="text-section-title text-slate-900">
             로그인 후 내 주식일지를 확인하세요
           </h3>
-          <p className="text-xs text-slate-500 font-medium leading-relaxed">
+          <p className="text-body text-slate-500">
             나만의 매매 사실과 원칙, STAY 다짐을 안전하게 기록하고 모아볼 수 있습니다.
           </p>
         </div>
@@ -70,7 +74,7 @@ export function JournalList({
             <button
               type="button"
               onClick={onLoginClick}
-              className="px-5 py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white text-xs font-bold rounded-2xl transition-all shadow-md cursor-pointer"
+              className="text-action px-5 py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white rounded-2xl transition-all shadow-md cursor-pointer"
             >
               로그인하러 가기
             </button>
@@ -84,11 +88,11 @@ export function JournalList({
   if (error) {
     return (
       <div className="bg-slate-50 rounded-3xl p-8 text-center space-y-3 my-4 scrollbar-none">
-        <p className="text-xs font-semibold text-slate-600">{error}</p>
+        <p className="text-body text-slate-600">{error}</p>
         <button
           type="button"
           onClick={() => refetch()}
-          className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+          className="text-action px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl transition-colors cursor-pointer"
         >
           다시 불러오기
         </button>
@@ -101,12 +105,12 @@ export function JournalList({
     return (
       <div className="bg-slate-50 rounded-3xl p-8 text-center space-y-3.5 my-4 scrollbar-none">
         <div className="space-y-1">
-          <h3 className="text-sm font-bold text-slate-900">
+          <h3 className="text-section-title text-slate-900">
             {filter === 'ALL'
               ? '아직 작성된 주식일지가 없습니다'
               : '해당 유형의 주식일지가 없습니다'}
           </h3>
-          <p className="text-xs text-slate-500 font-medium leading-relaxed">
+          <p className="text-body text-slate-500">
             오늘의 매매 사실과 원칙, STAY 다짐을 첫 일지로 기록해 보세요.
           </p>
         </div>
@@ -116,7 +120,7 @@ export function JournalList({
             <button
               type="button"
               onClick={onWriteClick}
-              className="px-5 py-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white text-xs font-bold rounded-2xl transition-all shadow-md flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
+              className="text-action px-5 py-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white rounded-2xl transition-all shadow-md flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
             >
               <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>첫 주식일지 작성하기</span>

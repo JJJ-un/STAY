@@ -7,8 +7,8 @@ export function JournalSuccessView() {
         <CheckCircle2 className="w-10 h-10" />
       </div>
       <div className="space-y-1">
-        <h2 className="text-xl font-bold text-slate-900">주식일지가 저장되었습니다!</h2>
-        <p className="text-xs text-slate-400">
+        <h2 className="text-page-title text-slate-900">주식일지가 저장되었습니다!</h2>
+        <p className="text-body text-slate-500">
           원칙을 지킨 매매 기록이 뇌동매매를 막아주는 든든한 방패가 됩니다.
         </p>
       </div>

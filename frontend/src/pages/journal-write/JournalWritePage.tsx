@@ -1,5 +1,7 @@
+import type { CSSProperties } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Toast, useToast } from '@/shared/ui'
+import { useElementHeight } from '@/shared/lib'
 import {
   StepBasicData,
   StepRules,
@@ -15,6 +17,10 @@ import {
 export function JournalWritePage() {
   // 모던 플로팅 토스트 훅
   const { toastState, showToast } = useToast()
+  const { ref: actionRef, height: actionHeight } = useElementHeight<HTMLDivElement>()
+  const editorStyle = {
+    '--journal-action-height': actionHeight === undefined ? undefined : `${actionHeight}px`,
+  } as CSSProperties
 
   // 1. 단계(Step) 이동 및 뒤로가기 전담 훅 (URL SearchParams 기반 표준 퍼널)
   const { currentStep, nextStep } = useStepNavigation({
@@ -62,13 +68,13 @@ export function JournalWritePage() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 min-h-[50vh] space-y-3">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        <p className="text-xs text-slate-500 font-medium">수정할 일지 정보를 불러오는 중...</p>
+        <p className="text-body text-slate-500">수정할 일지 정보를 불러오는 중...</p>
       </div>
     )
   }
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-4 pb-24 space-y-6 relative">
+    <div style={editorStyle} className="flex-1 flex flex-col justify-between px-4 pb-[calc(var(--journal-action-height,5.25rem)+1rem)] relative">
       {/* 상단 플로팅 토스트 알림 */}
       <Toast
         message={toastState.message}
@@ -77,10 +83,12 @@ export function JournalWritePage() {
       />
 
       {/* 1. 스텝 진행률 바 */}
-      <JournalStepIndicator currentStep={currentStep} totalSteps={TOTAL_JOURNAL_STEPS} />
+      <div className="sticky top-[var(--app-header-height)] z-30 -mx-4 bg-white px-4 py-4">
+        <JournalStepIndicator currentStep={currentStep} totalSteps={TOTAL_JOURNAL_STEPS} />
+      </div>
 
       {/* 2. 현재 스텝 본문 콘텐츠 */}
-      <div className="flex-1">
+      <div className="flex-1 pt-2">
         {currentStep === 1 && (
           <StepBasicData form={formState} onChange={updateForm} />
         )}
@@ -93,12 +101,12 @@ export function JournalWritePage() {
       </div>
 
       {/* 3. 하단 고정 CTA 버튼 */}
-      <div className="fixed bottom-16 left-0 right-0 p-4 max-w-[430px] mx-auto bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none">
+      <div ref={actionRef} className="fixed bottom-[var(--app-bottom-nav-height)] left-0 right-0 z-40 p-4 max-w-[430px] mx-auto bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none">
         <button
           type="button"
           onClick={onNextClick}
           disabled={isSubmitting}
-          className="pointer-events-auto w-full py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-2xl shadow-lg transition-all transform active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
+          className="text-action pointer-events-auto w-full py-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-2xl shadow-lg transition-all transform active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <Loader2 className="w-5 h-5 animate-spin text-white" />

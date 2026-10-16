@@ -21,7 +21,7 @@ export function JournalPage() {
   return (
     <div className="flex-1 flex flex-col">
       {/* 헤더 바로 아래 위치하는 주식일지 필터 탭 (sticky 고정) */}
-      <div className="sticky top-[48px] z-40 bg-white/95 backdrop-blur-md px-4">
+      <div className="sticky top-[var(--app-header-height)] z-40 bg-white/95 backdrop-blur-md px-4">
         <Tabs<JournalFilterType>
           items={JOURNAL_TAB_ITEMS}
           activeId={activeFilter}

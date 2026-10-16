@@ -83,9 +83,9 @@ export function RecommendedCommitment({ onNavigate }: RecommendedCommitmentProps
             {/* 1. 상단: 종목명 & 매매유형 */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-slate-900">{item.stockName}</span>
+                <span className="text-item-title text-slate-900">{item.stockName}</span>
                 <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  className={`text-badge px-2 py-0.5 rounded-full ${
                     item.tradeType === '매수'
                       ? 'bg-red-50 text-red-600'
                       : item.tradeType === '매도'
@@ -100,14 +100,14 @@ export function RecommendedCommitment({ onNavigate }: RecommendedCommitmentProps
 
             {/* 2. 중앙: STAY 다짐 메시지 */}
             <div className="my-2">
-              <p className="text-sm font-semibold leading-relaxed text-slate-800 line-clamp-2">
+              <p className="text-body text-slate-800 line-clamp-3">
                 "{item.stayMessage}"
               </p>
             </div>
 
             {/* 3. 하단: 좌측 감정 상태 텍스트 칩 & 우측 arrow.svg 버튼 */}
             <div className="flex items-center justify-between pt-1">
-              <div className="bg-slate-200/70 px-2.5 py-1 rounded-full text-xs font-semibold text-slate-700">
+              <div className="text-badge bg-slate-200/70 px-2.5 py-1 rounded-full text-slate-700">
                 <span>{item.emotionLabel}</span>
               </div>
 

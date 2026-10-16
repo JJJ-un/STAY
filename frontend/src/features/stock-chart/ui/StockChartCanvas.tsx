@@ -39,14 +39,15 @@ export function StockChartCanvas({
   useEffect(() => {
     if (!chartContainerRef.current) return
 
+    const typography = getComputedStyle(chartContainerRef.current)
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth || 340,
       height: 180,
       layout: {
         background: { color: 'transparent' },
-        textColor: '#94a3b8',
-        fontSize: 10,
-        fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, sans-serif',
+        textColor: '#64748b',
+        fontSize: Number.parseFloat(typography.fontSize),
+        fontFamily: typography.fontFamily,
         attributionLogo: false,
       },
       grid: {
@@ -190,7 +191,7 @@ export function StockChartCanvas({
     <div className="relative pt-1 w-full overflow-hidden">
       <div
         ref={chartContainerRef}
-        className={`w-full transition-opacity duration-200 ${isFirstLoading && isFetching ? 'opacity-50' : 'opacity-100'}`}
+        className={`text-caption w-full transition-opacity duration-200 ${isFirstLoading && isFetching ? 'opacity-50' : 'opacity-100'}`}
       />
     </div>
   )

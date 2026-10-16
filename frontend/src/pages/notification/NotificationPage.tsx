@@ -18,7 +18,7 @@ export function NotificationPage() {
   return (
     <div className="flex-1 flex flex-col">
       {/* 상단 알림 필터 탭바 */}
-      <div className="sticky top-[48px] z-40 bg-white/95 backdrop-blur-md px-4">
+      <div className="sticky top-[var(--app-header-height)] z-40 bg-white/95 backdrop-blur-md px-4">
         <Tabs<NotificationFilterType>
           items={NOTIFICATION_TAB_ITEMS}
           activeId={activeFilter}

@@ -1,9 +1,10 @@
+import type { Ref } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Home, TrendingUp, FileText, Bell, User } from 'lucide-react'
 
 export type NavTabType = 'HOME' | 'STOCK' | 'JOURNAL' | 'NOTIFICATION' | 'MY'
 
-export function BottomNav() {
+export function BottomNav({ ref }: { ref?: Ref<HTMLElement> }) {
   const location = useLocation()
   const navigate = useNavigate()
   const currentPath = location.pathname
@@ -17,8 +18,8 @@ export function BottomNav() {
   ]
 
   return (
-    <nav className="sticky bottom-0 z-50 w-full bg-white/95 backdrop-blur-md px-1 pt-2 pb-2 pb-[env(safe-area-inset-bottom)]">
-      <div className="flex items-center justify-around">
+    <nav ref={ref} className="sticky bottom-0 z-50 w-full bg-white/95 backdrop-blur-md px-1 pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="flex min-h-16 items-center justify-around py-1">
         {navItems.map(({ tab, path, label, icon: Icon }) => {
           const isActive = currentPath === path
 
@@ -27,14 +28,14 @@ export function BottomNav() {
               key={tab}
               type="button"
               onClick={() => navigate(path)}
-              className={`flex flex-col items-center gap-1 py-1 px-2.5 transition-colors cursor-pointer ${
+              className={`text-caption flex flex-col items-center gap-1 py-1 px-2.5 transition-colors cursor-pointer ${
                 isActive
-                  ? 'text-slate-900 font-bold'
-                  : 'text-slate-400 hover:text-slate-600 font-medium'
+                  ? 'text-slate-900 font-semibold'
+                  : 'text-slate-500 hover:text-slate-700 font-medium'
               }`}
             >
               <Icon className="w-5 h-5 stroke-[2.2]" />
-              <span className="text-[10px]">{label}</span>
+              <span>{label}</span>
             </button>
           )
         })}

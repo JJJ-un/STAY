@@ -15,7 +15,7 @@ export function JournalStepIndicator({
     <div className="space-y-3">
       {/* 상단 스텝 뱃지 */}
       <div className="flex justify-end">
-        <span className="text-xs font-bold text-blue-600 tabular-nums bg-blue-50 px-2.5 py-0.5 rounded-full">
+        <span className="text-badge text-blue-600 tabular-nums bg-blue-50 px-2.5 py-0.5 rounded-full">
           {currentStep} / {totalSteps} 단계
         </span>
       </div>

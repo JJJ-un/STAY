@@ -56,46 +56,46 @@ export function NotificationItem({ item, onItemClick }: NotificationItemProps) {
       }`}
     >
       {/* 1. 상단 라인: 뱃지 + 티커 + 발생 일시 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {!item.isRead && (
             <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
           )}
 
           <span
-            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${config.badgeClassName}`}
+            className={`text-badge px-2.5 py-0.5 rounded-full ${config.badgeClassName}`}
           >
             {config.label}
           </span>
 
-          <span className="text-xs font-bold text-slate-900 tracking-tight">
+          <span className="text-label text-slate-900">
             {item.ticker}
           </span>
         </div>
 
-        <span className="text-[11px] text-slate-400 font-medium tabular-nums">
+        <span className="text-caption text-slate-500 tabular-nums">
           {item.createdAt ? item.createdAt.replace('T', ' ').slice(0, 16) : ''}
         </span>
       </div>
 
       {/* 2. 본문: 다짐 메시지 */}
       {item.stayMessage && (
-        <p className="text-sm font-semibold text-slate-800 leading-snug">
+        <p className="text-body text-slate-800">
           "{item.stayMessage}"
         </p>
       )}
 
       {/* 3. 하단 라인: 가격 정보 */}
       {hasPriceInfo && (
-        <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+        <div className="text-label flex flex-wrap items-center gap-x-3 gap-y-1 text-slate-500">
           {hasCurrentPrice && (
             <span>
-              당시 체결가: <strong className="text-slate-900 font-bold">{formatUsd(item.currentPrice)}</strong>
+              당시 체결가: <strong className="text-slate-900 font-medium">{formatUsd(item.currentPrice)}</strong>
             </span>
           )}
           {hasTargetPrice && (
             <span>
-              기준가: <strong className="text-slate-700 font-semibold">{formatUsd(item.targetPrice)}</strong>
+              기준가: <strong className="text-slate-700 font-medium">{formatUsd(item.targetPrice)}</strong>
             </span>
           )}
         </div>
