@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Edit3, Calendar, X, ShieldAlert } from 'lucide-react'
+import { X } from 'lucide-react'
 import { StockHeader } from '@/widgets/stock-header'
 import { StockChart } from '@/widgets/stock-chart'
 import { useStockDetailQuery } from '@/entities/stock'
@@ -52,46 +52,21 @@ export function StockDetailPage() {
         onJournalClick={handleJournalClick}
       />
 
-      {/* 3. 이 종목 나만의 매매 원칙 */}
-      <div className="bg-slate-50/80 p-4 rounded-3xl space-y-3">
-        <div className="flex items-center gap-2 text-slate-800">
-          <ShieldAlert className="w-4 h-4 text-blue-600" />
-          <h2 className="text-sm font-bold tracking-tight">
-            {stock?.name || ticker} 나만의 원칙 체크
-          </h2>
-        </div>
-        <div className="space-y-2 text-xs font-semibold text-slate-600">
-          <p>• 진입 전 24시간 동안 분할 매수 시나리오를 검토했는가?</p>
-          <p>• 목표 수익률 달성 시 기계적 익절 원칙을 준수하는가?</p>
-          <p>• 최대 허용 손실폭(-3%) 초과 시 주저 없이 손절하는가?</p>
-        </div>
-      </div>
-
-      {/* 4. 하단 고정 일지 작성 CTA 버튼 (차트 선택에 따라 역동적 변신!) */}
+      {/* 3. 선택한 차트 시점으로 일지 작성 */}
       <div className="pt-2 pb-6 flex items-center gap-2">
         <button
           type="button"
           onClick={handleWriteJournal}
           disabled={!stock}
-          className={`flex-1 py-4 px-4 active:scale-[0.99] text-white font-black text-sm rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed ${
+          className={`text-action flex-1 py-4 px-4 active:scale-[0.99] text-white rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed ${
             selectedPoint
               ? 'bg-blue-600 hover:bg-blue-700'
               : 'bg-slate-900 hover:bg-slate-800'
           }`}
         >
-          {selectedPoint ? (
-            <>
-              <Calendar className="w-4 h-4 text-blue-200" />
-              <span>
-                {selectedPoint.date} (${selectedPoint.price.toFixed(2)}) 일지 작성하기
-              </span>
-            </>
-          ) : (
-            <>
-              <Edit3 className="w-4 h-4" />
-              <span>{stock?.name || ticker} 주식일지 작성하기</span>
-            </>
-          )}
+          <span>
+            {selectedPoint ? `${selectedPoint.date} 일지 작성하기` : '주식일지 작성하기'}
+          </span>
         </button>
 
         {/* 차트 선택 지점 취소(리셋) 버튼 */}

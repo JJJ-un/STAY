@@ -1,15 +1,13 @@
-import { ChevronRight, X } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import type { StockTimelineMarker } from '@/entities/stock'
 
 interface TimelineJournalCardProps {
   marker: StockTimelineMarker
-  onClose: () => void
   onJournalClick?: (journalId: number) => void
 }
 
 export function TimelineJournalCard({
   marker,
-  onClose,
   onJournalClick,
 }: TimelineJournalCardProps) {
   return (
@@ -18,17 +16,10 @@ export function TimelineJournalCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-          <h2 className="text-xs font-bold text-blue-900 tracking-tight">
+          <h2 className="text-section-title text-blue-900">
             {marker.date} 작성한 다짐 ({marker.totalCount}건)
           </h2>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-5 h-5 rounded-full bg-blue-100/70 text-blue-700 flex items-center justify-center hover:bg-blue-200 cursor-pointer"
-        >
-          <X className="w-3 h-3" />
-        </button>
       </div>
 
       {/* 일지 목록 카드들 */}
@@ -46,7 +37,7 @@ export function TimelineJournalCard({
               <div className="space-y-1 flex-1">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                    className={`text-badge px-2 py-0.5 rounded-md ${
                       isBuy
                         ? 'bg-red-50 text-red-600'
                         : isSell
@@ -56,11 +47,11 @@ export function TimelineJournalCard({
                   >
                     {isBuy ? '매수' : isSell ? '매도' : '관망'}
                   </span>
-                  <span className="text-[10px] font-medium text-slate-400 tabular-nums">
+                  <span className="text-caption text-slate-500 tabular-nums">
                     {journal.tradeDateTime}
                   </span>
                 </div>
-                <p className="text-xs font-bold text-slate-900 leading-snug group-hover:text-blue-600 transition-colors">
+                <p className="text-body text-slate-900 group-hover:text-blue-600 transition-colors">
                   "{journal.stayMessage}"
                 </p>
               </div>
