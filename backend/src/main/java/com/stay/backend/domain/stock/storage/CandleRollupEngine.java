@@ -17,8 +17,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * 5분봉 종가 실시간 롤업(Rollup) 및 콜드 스타트 워밍업 엔진
  * - 오버엔지니어링(고가/저가/거래량) 배제: 패턴 매칭에 필요한 '5분 종가(Close)' 시계열만 초경량 관리
- * - synchronized (this) 제거: ConcurrentHashMap.compute() 기반의 종목별 락-프리 원자적 윈도우 제어
- * - 콜드 스타트 방어: 서버 기동 시 KIS 차트 API 1회 백필(Warm-up)로 빈틈없는 연속성 보장
+ * - Per-key compute serializes updates; timestamps prevent older ticks overwriting the close.
+ * - Lazy history backfill; a failed or empty load can be retried on the next read.
  */
 @Slf4j
 @Component
@@ -44,10 +44,16 @@ public class CandleRollupEngine {
     public static class FiveMinPriceBuffer {
         private final long startTimeMillis;
         private volatile BigDecimal lastPrice;
+        private long lastTimestampMillis;
 
         public FiveMinPriceBuffer(long startTimeMillis, BigDecimal initialPrice) {
+            this(startTimeMillis, initialPrice, startTimeMillis);
+        }
+
+        private FiveMinPriceBuffer(long startTimeMillis, BigDecimal initialPrice, long timestamp) {
             this.startTimeMillis = startTimeMillis;
             this.lastPrice = initialPrice;
+            this.lastTimestampMillis = timestamp;
         }
 
         public void updateLastPrice(BigDecimal price) {
@@ -56,8 +62,8 @@ public class CandleRollupEngine {
     }
 
     /**
-     * 웹소켓 체결가 수신 시 5분 종가 갱신 (synchronized 전체 락 완전 제거)
-     * - ConcurrentHashMap.compute()로 종목별로만 원자적 마감 처리
+     * 웹소켓 체결가 수신 시 전달 시각 기준 5분 종가 갱신
+     * - ConcurrentHashMap.compute()로 동일 키의 갱신 조정
      * - 고가/저가/거래량 연산 배제: 오직 최신 체결가 덮어쓰기만 수행
      */
     public void acceptTick(String ticker, BigDecimal price, Instant timestamp) {
@@ -69,8 +75,9 @@ public class CandleRollupEngine {
         long epochMilli = timestamp != null ? timestamp.toEpochMilli() : System.currentTimeMillis();
         long bucketStartTime = epochMilli - (epochMilli % BUCKET_INTERVAL_MILLIS);
 
-        // 종목별 Key에 대해서만 마이크로 원자적 연산 수행 (다른 종목 스레드 차단 0%)
+        // Per-key atomic update; this is not a claim that all processing is lock-free.
         currentBufferMap.compute(normalizedTicker, (k, currentBuffer) -> {
+            if (currentBuffer != null && epochMilli < currentBuffer.lastTimestampMillis) return currentBuffer;
             // 1. 새로운 5분 윈도우 시작 (이전 5분 종가 확정 및 새 버퍼 교체)
             if (currentBuffer == null || currentBuffer.getStartTimeMillis() < bucketStartTime) {
                 if (currentBuffer != null && currentBuffer.getLastPrice() != null) {
@@ -84,11 +91,12 @@ public class CandleRollupEngine {
                     log.debug("[CandleRollupEngine] 5분 종가 마감: ticker={}, close={}",
                             normalizedTicker, currentBuffer.getLastPrice());
                 }
-                return new FiveMinPriceBuffer(bucketStartTime, price);
+                return new FiveMinPriceBuffer(bucketStartTime, price, epochMilli);
             }
 
             // 2. 동일 5분 윈도우 내에서는 대소 비교 없이 최신 가격으로 단순 덮어쓰기
             currentBuffer.updateLastPrice(price);
+            currentBuffer.lastTimestampMillis = epochMilli;
             return currentBuffer;
         });
     }
@@ -147,7 +155,8 @@ public class CandleRollupEngine {
                 log.warn("[CandleRollupEngine] 콜드 스타트 백필 실패 (빈 상태 유지): ticker={}, error={}",
                         normalizedTicker, e.getMessage());
             }
-            return history;
+            // Do not cache a failed/empty load forever. A subsequent read may retry.
+            return history.isEmpty() ? null : history;
         });
     }
 
