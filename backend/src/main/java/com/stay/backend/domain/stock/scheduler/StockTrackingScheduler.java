@@ -22,7 +22,7 @@ public class StockTrackingScheduler {
     private final NotificationService notificationService;
 
     /**
-     * 1분(60,000ms) 주기로 활성 일지들을 실시간 대조 감시
+     * 작업 종료 후 60,000ms 지연을 두고 활성 일지를 다시 확인
      */
     @Scheduled(fixedDelay = 60000, initialDelay = 10000)
     public void runTrackingMonitorTask() {
@@ -32,7 +32,13 @@ public class StockTrackingScheduler {
             if (!alerts.isEmpty()) {
                 log.info("[스케줄러] 총 {}건의 STAY 다짐/목표가 알림 발생!", alerts.size());
                 for (TrackingAlertResult alert : alerts) {
-                    notificationService.createTrackingAlert(alert);
+                    try {
+                        notificationService.createTrackingAlert(alert);
+                        stockTrackingService.acknowledgeAlert(alert);
+                    } catch (Exception e) {
+                        stockTrackingService.releaseAlert(alert);
+                        log.error("알림 저장 실패, 다음 감시에서 재시도: journalId={}", alert.journalId(), e);
+                    }
                 }
             }
         } catch (Exception e) {

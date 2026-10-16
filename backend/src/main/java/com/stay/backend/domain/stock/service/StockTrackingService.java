@@ -24,11 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * 실시간 주가 흐름 패턴 감시 및 다짐/목표가 알림 트리거 서비스
- * - JPA Over-fetching 차단: 경량 TrackingTargetDto 프로젝션으로 필요한 필드만 직접 인출
- * - JSON 파싱 메모이제이션: Caffeine In-Memory Cache로 반복 역직렬화 CPU 부하 및 Minor GC 완벽 방어
- * - 종목(Ticker) 기준 그룹핑 & 병렬 파이프라인: N+1 중복 차트 조회 제거 및 멀티코어 100% 활용
- * - 웹소켓 인메모리 시세(RealtimePriceStorage) 우선 판정: 외부 API 호출 0회 및 초저지연 평가
+ * Evaluates active journal snapshots in bounded chunks and shares charts within each ticker group.
+ * Cache/cooldown state is local to this process; delivery success is acknowledged by the scheduler.
  */
 @Slf4j
 @Service
@@ -42,12 +39,13 @@ public class StockTrackingService {
     private final RealtimePriceStorage realtimePriceStorage;
     private final CandleRollupEngine candleRollupEngine;
 
-    // 중복 알림 폭탄 방지용 쿨다운 맵 (일지 ID -> 마지막 알림 발송 시각, 쿨다운: 30분)
-    private final Map<Long, Instant> alertCooldownMap = new ConcurrentHashMap<>();
+    // In-flight reservation or successful-delivery timestamp, keyed by journal ID.
+    private record AlertReservation(TrackingAlertResult alert, Instant since) {}
+    private final Map<Long, AlertReservation> alertCooldownMap = new ConcurrentHashMap<>();
     private static final Duration ALERT_COOLDOWN_DURATION = Duration.ofMinutes(30);
 
     // 과거 패턴 JSON 역직렬화 결과 인메모리 메모이제이션 캐시 (일지 ID -> 파싱된 캔들 종가 리스트)
-    // - 매 분마다 Jackson 파서를 반복 호출하는 CPU 부하 및 Minor GC 단기 객체 양산 원천 방어 (LRU 10,000건, TTL 24시간)
+    // Reuses parsed patterns (maximum 10,000 entries, expire-after-write 24 hours).
     private final Cache<Long, List<BigDecimal>> patternCache = Caffeine.newBuilder()
             .maximumSize(10_000)
             .expireAfterWrite(Duration.ofHours(24))
@@ -84,7 +82,7 @@ public class StockTrackingService {
         int totalProcessed = 0;
 
         while (true) {
-            // 1. [Reader] lastJournalId보다 큰 1,000건을 인덱스 커서로 0ms 조회 (OFFSET 슬로우 쿼리 원천 차단)
+            // Read up to 1,000 targets after the previous journal ID; query time still depends on the DB.
             List<TrackingTargetDto> chunk = journalRepository.findActiveTrackingTargetsChunk(lastJournalId, pageable);
             if (chunk == null || chunk.isEmpty()) {
                 break;
@@ -139,7 +137,7 @@ public class StockTrackingService {
             if (hasPattern) {
                 ChartRangeType rangeType = target.chartRangeType() != null ? target.chartRangeType() : ChartRangeType.MONTH_3;
                 chartDataByRange.computeIfAbsent(rangeType, r -> {
-                    // 1. 당일 5분봉(DAY_1)은 인메모리 롤업 엔진의 캔들 시계열 우선 채택 (외부 API 0회)
+                    // Prefer rollup candles; a cold rollup may load history through the chart service.
                     if (r == ChartRangeType.DAY_1) {
                         List<BigDecimal> dailyCandles = candleRollupEngine.getDailyCandles(ticker);
                         if (dailyCandles != null && !dailyCandles.isEmpty()) {
@@ -159,7 +157,7 @@ public class StockTrackingService {
             }
         }
 
-        // 1. [웹소켓 인메모리 시세 우선] 외부 API 호출 0회, O(1) 초고속 조회
+        // Prefer the process-local snapshot; freshness/market event time is a separate policy.
         // 2. 만약 소켓 시세가 아직 없으면, 차트 데이터 최신 종가 확인
         // 3. 둘 다 없으면 DB의 기본 stockCurrentPrice로 안전하게 폴백
         BigDecimal resolvedCurrentPrice = realtimePriceStorage.getLatestCurrentPrice(ticker)
@@ -271,15 +269,26 @@ public class StockTrackingService {
         }
 
         Instant now = Instant.now();
-        Instant lastSent = alertCooldownMap.get(result.journalId());
-
-        if (lastSent != null && Duration.between(lastSent, now).compareTo(ALERT_COOLDOWN_DURATION) < 0) {
-            log.debug("알림 쿨다운 중으로 발송 스킵: journalId={}, 경과={}초",
-                    result.journalId(), Duration.between(lastSent, now).toSeconds());
-            return false;
-        }
-
-        alertCooldownMap.put(result.journalId(), now);
-        return true;
+        AlertReservation candidate = new AlertReservation(result, now);
+        AlertReservation selected = alertCooldownMap.compute(result.journalId(), (id, existing) -> {
+            if (existing != null && Duration.between(existing.since(), now).compareTo(ALERT_COOLDOWN_DURATION) < 0) {
+                return existing;
+            }
+            return candidate;
+        });
+        return selected == candidate;
     }
+
+    /** Start the cooldown at successful persistence; an old completion cannot replace a newer reservation. */
+    public void acknowledgeAlert(TrackingAlertResult result) {
+        alertCooldownMap.computeIfPresent(result.journalId(), (id, reservation) ->
+                reservation.alert() == result ? new AlertReservation(null, Instant.now()) : reservation);
+    }
+
+    /** Release only this delivery attempt so storage failures remain retryable. */
+    public void releaseAlert(TrackingAlertResult result) {
+        alertCooldownMap.computeIfPresent(result.journalId(), (id, reservation) ->
+                reservation.alert() == result ? null : reservation);
+    }
+
 }
