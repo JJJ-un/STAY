@@ -1,91 +1,48 @@
+import type { CSSProperties } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Header } from '@/widgets/header'
 import { BottomNav } from '@/widgets/bottom-nav'
-import PlusIcon from '@/shared/assets/plus.svg?react'
+import { Plus } from 'lucide-react'
+import { useElementHeight } from '@/shared/lib'
 
 export function RootLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const pathname = location.pathname
+  const { ref: bottomNavRef, height: bottomNavHeight } = useElementHeight<HTMLElement>()
+  const layoutStyle = {
+    '--app-bottom-nav-height': bottomNavHeight === undefined ? undefined : `${bottomNavHeight}px`,
+  } as CSSProperties
 
-  // 현재 라우트에 따른 동적 헤더 Props 계산
-  const getHeaderProps = () => {
-    if (pathname.startsWith('/stock/')) {
-      return {
-        showBackButton: true,
-        onBack: () => navigate(-1),
-        title: '',
-        rightAction: null,
-      }
-    }
+  const showBackButton = pathname.startsWith('/stock/') ||
+    pathname === '/journal/detail' || pathname === '/journal/write'
 
-    if (pathname.startsWith('/journal/detail')) {
-      return {
-        showBackButton: true,
-        onBack: () => navigate(-1),
-        title: '주식일지 상세',
-        rightAction: null,
-      }
+  const handleBack = () => {
+    if (location.key === 'default') {
+      navigate(pathname.startsWith('/stock/') ? '/stock' : '/journal', { replace: true })
+      return
     }
-
-    if (pathname === '/journal/write') {
-      return {
-        showBackButton: true,
-        onBack: () => navigate(-1),
-        title: '새 주식일지 작성',
-        rightAction: null,
-      }
-    }
-
-    switch (pathname) {
-      case '/stock':
-        return {
-          showBackButton: false,
-          title: '',
-          rightAction: null,
-        }
-      case '/journal':
-        return {
-          showBackButton: false,
-          title: '',
-          rightAction: (
-            <button
-              type="button"
-              onClick={() => navigate('/journal/write')}
-              className="p-1 -mr-1.5 text-slate-900 hover:opacity-75 transition-opacity cursor-pointer flex items-center justify-center"
-              aria-label="일지 작성"
-            >
-              <PlusIcon className="w-7 h-7" />
-            </button>
-          ),
-        }
-      case '/notification':
-        return {
-          showBackButton: false,
-          title: '알림',
-          rightAction: null,
-        }
-      case '/my':
-        return {
-          showBackButton: false,
-          title: '마이페이지',
-          rightAction: null,
-        }
-      case '/':
-      default:
-        return {
-          showBackButton: false,
-          title: '',
-          rightAction: null,
-        }
-    }
+    navigate(-1)
   }
 
   return (
     <div className="min-h-screen bg-slate-100 flex justify-center">
-      <div className="w-full max-w-[430px] min-h-screen bg-white text-slate-900 flex flex-col relative">
+      <div style={layoutStyle} className="w-full max-w-[430px] min-h-screen bg-white text-slate-900 flex flex-col relative">
         {/* 최상단 고정 헤더 */}
-        <Header {...getHeaderProps()} />
+        <Header
+          showBackButton={showBackButton}
+          onBack={handleBack}
+          rightAction={pathname === '/journal' ? (
+            <button
+              type="button"
+              onClick={() => navigate('/journal/write')}
+              className="flex h-11 w-11 -mr-3 items-center justify-center rounded-xl text-slate-900 transition-colors hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer"
+              aria-label="일지 작성"
+            >
+              <Plus className="h-5 w-5" aria-hidden="true" />
+            </button>
+          ) : null}
+        />
 
         {/* 페이지 본문 영역 (React Router Outlet) */}
         <main className="flex-1 flex flex-col">
@@ -93,7 +50,7 @@ export function RootLayout() {
         </main>
 
         {/* 최하단 고정 내비게이션 바 */}
-        <BottomNav />
+        <BottomNav ref={bottomNavRef} />
       </div>
     </div>
   )

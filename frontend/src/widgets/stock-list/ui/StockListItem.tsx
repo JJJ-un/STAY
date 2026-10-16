@@ -32,7 +32,7 @@ export function StockListItem({
   return (
     <div
       onClick={() => navigate(`/stock/${stock.ticker}`)}
-      className={`flex items-center justify-between p-3.5 rounded-2xl cursor-pointer transition-all duration-300 active:scale-[0.99] ${isFlashing
+      className={`flex items-center justify-between gap-3 p-3.5 rounded-2xl cursor-pointer transition-all duration-300 active:scale-[0.99] ${isFlashing
         ? isUp
           ? 'bg-red-50/90'
           : 'bg-blue-50/90'
@@ -40,36 +40,36 @@ export function StockListItem({
         }`}
     >
       {/* 좌측: 순위 & 종목명 & 티커 */}
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         {rank !== undefined && (
-          <span className="w-5 text-center text-xs font-black text-slate-400 tabular-nums">
+          <span className="text-caption w-5 text-center text-slate-500 tabular-nums">
             {rank}
           </span>
         )}
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 leading-tight">
+        <div className="min-w-0">
+          <h3 className="text-item-title break-words text-slate-900">
             {stock.name}
           </h3>
-          <span className="text-[11px] font-semibold text-slate-400 mt-0.5 block">
+          <span className="text-caption text-slate-500 mt-0.5 block">
             {stock.ticker}
           </span>
         </div>
       </div>
 
       {/* 우측: 실시간 현재가 & 등락률 */}
-      <div className="text-right space-y-0.5">
+      <div className="shrink-0 text-right space-y-0.5">
         <p
-          className={`text-sm font-black tabular-nums transition-all duration-300 ${isFlashing
+          className={`text-price tabular-nums transition-colors duration-300 ${isFlashing
             ? isUp
-              ? 'text-red-600 scale-105 font-black'
-              : 'text-blue-600 scale-105 font-black'
+              ? 'text-red-600'
+              : 'text-blue-600'
             : 'text-slate-900'
             }`}
         >
           {formatUsd(currentPrice)}
         </p>
         <p
-          className={`text-xs font-bold tabular-nums ${isUp ? 'text-red-500' : isDown ? 'text-blue-600' : 'text-slate-400'
+          className={`text-label tabular-nums ${isUp ? 'text-red-500' : isDown ? 'text-blue-600' : 'text-slate-500'
             }`}
         >
           {isUp ? `+${changeRate.toFixed(2)}%` : `${changeRate.toFixed(2)}%`}

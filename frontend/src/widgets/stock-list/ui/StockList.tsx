@@ -23,13 +23,13 @@ export function StockList({
   if (isError) {
     return (
       <div className="bg-slate-50 rounded-3xl p-8 text-center space-y-3 scrollbar-none">
-        <p className="text-xs font-bold text-slate-700">
+        <p className="text-body text-slate-700">
           종목 목록을 불러오지 못했습니다.
         </p>
         <button
           type="button"
           onClick={() => refetch()}
-          className="text-xs font-bold text-slate-900 bg-white px-3 py-1.5 rounded-xl shadow-sm hover:bg-slate-100 transition-colors"
+          className="text-action text-slate-900 bg-white px-3 py-1.5 rounded-xl shadow-sm hover:bg-slate-100 transition-colors"
         >
           다시 시도
         </button>
@@ -41,7 +41,7 @@ export function StockList({
   if (stocks.length === 0) {
     return (
       <div className="bg-slate-50 rounded-3xl p-8 text-center space-y-2 scrollbar-none">
-        <p className="text-xs font-bold text-slate-400">
+        <p className="text-body text-slate-500">
           조회된 종목이 없습니다.
         </p>
       </div>

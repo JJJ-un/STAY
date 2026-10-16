@@ -33,11 +33,11 @@ export function NotificationList({ filter, unreadOnly }: NotificationListProps) 
   if (isError) {
     return (
       <div className="py-16 text-center flex flex-col items-center justify-center space-y-3">
-        <p className="text-xs text-red-500 font-medium">알림 목록을 불러오지 못했습니다.</p>
+        <p className="text-body text-red-500">알림 목록을 불러오지 못했습니다.</p>
         <button
           type="button"
           onClick={() => refetch()}
-          className="px-3.5 py-1.5 rounded-lg bg-slate-100 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+          className="text-action px-3.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
         >
           다시 시도
         </button>
@@ -49,7 +49,7 @@ export function NotificationList({ filter, unreadOnly }: NotificationListProps) 
   if (notifications.length === 0) {
     return (
       <div className="py-20 text-center flex flex-col items-center justify-center space-y-1.5">
-        <p className="text-xs font-medium text-slate-400">도착한 알림이 없습니다.</p>
+        <p className="text-body text-slate-500">도착한 알림이 없습니다.</p>
       </div>
     )
   }

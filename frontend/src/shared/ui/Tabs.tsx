@@ -38,10 +38,10 @@ export function Tabs<T extends string>({
               onClick={() => onChange(item.id)}
               className={`py-3 transition-colors relative cursor-pointer ${
                 fullWidth ? 'flex-1 text-center' : ''
-              } ${size === 'sm' ? 'text-sm' : 'text-base'} ${
+              } ${size === 'sm' ? 'text-label' : 'text-action'} ${
                 isActive
-                  ? 'text-slate-900 font-bold'
-                  : 'text-slate-400 font-medium hover:text-slate-600'
+                  ? 'text-slate-900 font-semibold'
+                  : 'text-slate-500 font-normal hover:text-slate-700'
               }`}
             >
               {item.label}
@@ -65,12 +65,12 @@ export function Tabs<T extends string>({
             key={item.id}
             type="button"
             onClick={() => onChange(item.id)}
-            className={`flex-1 text-center font-bold rounded-xl transition-all cursor-pointer ${
-              size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3 py-1.5 text-sm'
+            className={`flex-1 text-center rounded-xl transition-all cursor-pointer ${
+              size === 'sm' ? 'px-2.5 py-1 text-label' : 'px-3 py-1.5 text-action'
             } ${
               isActive
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-400 hover:text-slate-700'
+                ? 'bg-white text-slate-900 font-semibold shadow-xs'
+                : 'text-slate-500 font-normal hover:text-slate-700'
             }`}
           >
             {item.label}

@@ -2,6 +2,42 @@
 
 @theme {
   --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+  /* Role-based typography: size, line height and default weight travel together. */
+  --text-page-title: 1.375rem;
+  --text-page-title--line-height: 1.875rem;
+  --text-page-title--font-weight: 600;
+  --text-section-title: 1.0625rem;
+  --text-section-title--line-height: 1.5rem;
+  --text-section-title--font-weight: 600;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5rem;
+  --text-body--font-weight: 400;
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.375rem;
+  --text-label--font-weight: 500;
+  --text-item-title: 0.9375rem;
+  --text-item-title--line-height: 1.375rem;
+  --text-item-title--font-weight: 500;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.125rem;
+  --text-caption--font-weight: 400;
+  --text-badge: 0.75rem;
+  --text-badge--line-height: 1.125rem;
+  --text-badge--font-weight: 500;
+  --text-action: 0.9375rem;
+  --text-action--line-height: 1.25rem;
+  --text-action--font-weight: 600;
+  --text-input: 1rem;
+  --text-input--line-height: 1.5rem;
+  --text-input--font-weight: 400;
+  --text-price: 1rem;
+  --text-price--line-height: 1.5rem;
+  --text-price--font-weight: 600;
+  --text-price-lg: 1.875rem;
+  --text-price-lg--line-height: 2.25rem;
+  --text-price-lg--font-weight: 700;
+  --spacing-card: 1rem;
+  --spacing-field: 0.5rem;
   --color-brand-primary: #2563eb;
   --color-trend-up: #f87171;
   --color-trend-down: #3b82f6;
@@ -10,6 +46,8 @@
 }
 
 :root {
+  --app-header-height: calc(3rem + env(safe-area-inset-top, 0px));
+  --app-bottom-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
   --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
   --primary-surface: #f8fafc;
   --brand-primary: #2563eb;
@@ -27,6 +65,9 @@ body {
   padding: 0;
   background-color: var(--primary-surface);
   color: #0f172a;
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  font-weight: var(--text-body--font-weight);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

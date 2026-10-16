@@ -24,7 +24,7 @@ export function Toast({ message, type = 'error', isVisible }: ToastProps) {
     <div className="fixed top-14 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none animate-in fade-in slide-in-from-top-3 duration-200">
       <div className="max-w-[360px] w-auto bg-slate-900/95 backdrop-blur-md text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 pointer-events-auto">
         {iconMap[type]}
-        <span className="text-xs font-semibold leading-snug">{message}</span>
+        <span className="text-label">{message}</span>
       </div>
     </div>
   )

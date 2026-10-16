@@ -14,7 +14,7 @@ export function StockHeader({ stock, isLoading }: StockHeaderProps) {
   if (isLoading || !stock) {
     return (
       <div className="space-y-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Skeleton className="h-6 w-24 rounded-md" />
           <Skeleton className="h-5 w-12 rounded-md" />
         </div>
@@ -33,16 +33,16 @@ export function StockHeader({ stock, isLoading }: StockHeaderProps) {
   return (
     <div className="space-y-1">
       {/* 종목명 & 티커 */}
-      <div className="flex items-center gap-2">
-        <h1 className="text-xl font-black text-slate-900 tracking-tight">{stock.name}</h1>
-        <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-page-title text-slate-900">{stock.name}</h1>
+        <span className="text-badge text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
           {stock.ticker}
         </span>
       </div>
 
       {/* 현재가 & 공통 등락률 뱃지 (실시간 동기화) */}
-      <div className="flex items-baseline gap-2.5 pt-0.5">
-        <span className="text-3xl font-extrabold text-slate-900 tabular-nums tracking-tight transition-colors duration-300">
+      <div className="flex flex-wrap items-baseline gap-2.5 pt-0.5">
+        <span className="text-price-lg text-slate-900 tabular-nums transition-colors duration-300">
           {formatUsd(currentPrice)}
         </span>
 
