@@ -1,1 +1,0 @@
-export { InsightCarousel } from './InsightCarousel'
